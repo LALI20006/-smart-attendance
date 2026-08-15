@@ -1,0 +1,754 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AttendPro — Smart Attendance Platform</title>
+  <meta name="description"
+    content="Smart digital attendance platform with QR scanning, real-time monitoring, and analytics for educational institutions.">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/login.css">
+  <style>
+    /* ── Password Strength ── */
+    .strength-meter { margin-top: 8px; display: none; }
+    .strength-meter.visible { display: block; }
+    .strength-bars { display: flex; gap: 4px; height: 4px; border-radius: 2px; overflow: hidden; background: rgba(255,255,255,0.05); margin-bottom: 4px; }
+    .strength-bar { flex: 1; background: transparent; transition: background 0.3s ease; }
+    .strength-text { font-size: 11px; text-align: right; color: var(--text-muted); font-weight: 500; }
+    .strength-weak .strength-bar:nth-child(1) { background: #ef4444; }
+    .strength-fair .strength-bar:nth-child(1), .strength-fair .strength-bar:nth-child(2) { background: #eab308; }
+    .strength-good .strength-bar:nth-child(1), .strength-good .strength-bar:nth-child(2), .strength-good .strength-bar:nth-child(3) { background: #3b82f6; }
+    .strength-strong .strength-bar { background: #22c55e; }
+
+    /* ── Forgot Password Steps ── */
+    .fp-step {
+      display: none;
+    }
+
+    .fp-step.active {
+      display: block;
+    }
+
+    .fp-email-sent {
+      text-align: center;
+      padding: var(--space-md) 0;
+    }
+
+    .fp-sent-icon {
+      font-size: 56px;
+      margin-bottom: var(--space-md);
+      display: block;
+    }
+
+    .fp-sent-title {
+      font-size: var(--text-xl);
+      font-weight: 700;
+      margin-bottom: 6px;
+    }
+
+    .fp-sent-desc {
+      font-size: var(--text-sm);
+      color: var(--text-muted);
+      line-height: 1.6;
+    }
+
+    .fp-email-highlight {
+      display: inline-block;
+      margin-top: var(--space-sm);
+      padding: 6px 14px;
+      background: rgba(108, 99, 255, 0.1);
+      border: 1px solid rgba(108, 99, 255, 0.3);
+      border-radius: var(--radius-full);
+      font-size: var(--text-sm);
+      font-weight: 600;
+      color: var(--primary-light);
+      word-break: break-all;
+    }
+
+    .fp-divider {
+      display: flex;
+      align-items: center;
+      gap: var(--space-md);
+      margin: var(--space-lg) 0;
+      color: var(--text-muted);
+      font-size: var(--text-xs);
+    }
+
+    .fp-divider::before,
+    .fp-divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border-subtle);
+    }
+
+    .password-strength {
+      margin-top: 6px;
+      display: flex;
+      gap: 4px;
+      align-items: center;
+    }
+
+    .strength-bar {
+      height: 3px;
+      flex: 1;
+      border-radius: 2px;
+      background: var(--border-default);
+      transition: background 0.3s;
+    }
+
+    .strength-label {
+      font-size: 10px;
+      font-weight: 600;
+      min-width: 40px;
+      color: var(--text-muted);
+    }
+
+    .forgot-link {
+      display: block;
+      text-align: right;
+      font-size: var(--text-xs);
+      color: var(--text-muted);
+      margin-top: -6px;
+      margin-bottom: var(--space-md);
+      cursor: pointer;
+      transition: color var(--transition-fast);
+    }
+
+    .forgot-link:hover {
+      color: var(--primary-light);
+    }
+  </style>
+</head>
+
+<body>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="login-page">
+    <div class="login-container">
+
+      <!-- Brand -->
+      <div class="login-brand">
+        <div class="brand-logo">🎓</div>
+        <h1 class="brand-name gradient-text">AttendPro</h1>
+        <p class="brand-tagline">Smart Attendance Platform for Modern Education</p>
+      </div>
+
+      <!-- Role Selector -->
+      <div class="role-selector">
+        <div class="role-card student selected" id="role-student" onclick="selectRole('student')">
+          <span class="role-icon">🎒</span>
+          <span class="role-name">Student</span>
+          <span class="role-desc">Mark your attendance</span>
+        </div>
+        <div class="role-card faculty" id="role-faculty" onclick="selectRole('faculty')">
+          <span class="role-icon">👨‍🏫</span>
+          <span class="role-name">Faculty</span>
+          <span class="role-desc">Manage &amp; monitor</span>
+        </div>
+      </div>
+
+      <!-- Login / Signup Form -->
+      <div class="login-form-card glass-card">
+        <div class="form-header">
+          <h2 class="form-title" id="form-title">Student Login</h2>
+          <p class="form-subtitle" id="form-subtitle">Sign in to mark your attendance</p>
+        </div>
+
+        <form id="login-form" onsubmit="handleLogin(event)">
+          <div class="form-fields">
+            <div class="input-group">
+              <label class="input-label" for="email">Email Address</label>
+              <div class="input-with-icon">
+                <span class="input-icon">✉️</span>
+                <input class="input-field" type="email" id="email" placeholder="Enter your email" autocomplete="email"
+                  required>
+              </div>
+            </div>
+            <div class="input-group">
+              <label class="input-label" for="password">Password</label>
+              <div class="input-with-icon">
+                <span class="input-icon">🔒</span>
+                <input class="input-field" type="password" id="password" placeholder="Enter your password"
+                  autocomplete="current-password" required>
+                <button type="button" class="eye-toggle" onclick="togglePassword('password','eye-btn')"
+                  id="eye-btn">👁️</button>
+              </div>
+            </div>
+          </div>
+
+          <span class="forgot-link" onclick="openForgotPassword()">Forgot Password?</span>
+
+          <div class="form-error" id="form-error">Invalid email or password. Please try again.</div>
+
+          <button type="submit" class="btn btn-primary login-btn" id="login-btn">
+            <span>Sign In</span>
+            <span>→</span>
+          </button>
+        </form>
+
+        <form id="signup-form" class="hidden" onsubmit="handleSignup(event)">
+          <div class="form-fields">
+            <div class="input-group">
+              <label class="input-label" for="signup-name">Full Name</label>
+              <div class="input-with-icon">
+                <span class="input-icon">👤</span>
+                <input class="input-field" type="text" id="signup-name" placeholder="Enter your full name"
+                  autocomplete="name" required>
+              </div>
+            </div>
+
+
+            <div class="input-group">
+              <label class="input-label" for="signup-email">Email Address</label>
+              <div class="input-with-icon">
+                <span class="input-icon">✉️</span>
+                <input class="input-field" type="email" id="signup-email" placeholder="Enter your email"
+                  autocomplete="email" required>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label class="input-label" for="signup-password">Password</label>
+              <div class="input-with-icon">
+                <span class="input-icon">🔒</span>
+                <input class="input-field" type="password" id="signup-password"
+                  placeholder="Create a strong password" autocomplete="new-password" required
+                  oninput="checkPasswordStrength(this.value)">
+                <button type="button" class="eye-toggle" onclick="togglePassword('signup-password','eye-signup')"
+                  id="eye-signup">👁️</button>
+              </div>
+              <div class="strength-meter" id="strength-meter">
+                <div class="strength-bars" id="strength-bars">
+                  <div class="strength-bar"></div><div class="strength-bar"></div>
+                  <div class="strength-bar"></div><div class="strength-bar"></div>
+                </div>
+                <div class="strength-text" id="strength-text">Weak</div>
+              </div>
+            </div>
+
+            <div class="input-group">
+              <label class="input-label" for="signup-confirm-password">Confirm Password</label>
+              <div class="input-with-icon">
+                <span class="input-icon">🔐</span>
+                <input class="input-field" type="password" id="signup-confirm-password"
+                  placeholder="Confirm your password" autocomplete="new-password" required>
+              </div>
+            </div>
+          </div>
+
+          <div class="form-error" id="signup-error">Please correct the highlighted fields.</div>
+
+          <button type="submit" class="btn btn-primary login-btn" id="signup-btn">
+            <span>Create Account</span>
+            <span>→</span>
+          </button>
+        </form>
+
+        <div class="auth-toggle-row">
+          <span id="auth-toggle-text">New here?</span>
+          <button type="button" class="text-link" id="toggle-auth-btn" onclick="toggleAuthMode()">Create
+            account</button>
+        </div>
+
+      </div>
+
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════════════
+       FORGOT PASSWORD MODAL
+  ═════════════════════════════════════════ -->
+  <div class="modal-overlay" id="forgot-modal">
+    <div class="modal" style="max-width:440px">
+
+      <!-- Step 1: Enter Email -->
+      <div class="fp-step active" id="fp-step-1">
+        <div class="modal-header">
+          <h3 class="modal-title">🔑 Forgot Password</h3>
+          <button class="modal-close" onclick="closeForgotPassword()">✕</button>
+        </div>
+        <p style="font-size:var(--text-sm);color:var(--text-muted);margin-bottom:var(--space-xl)">
+          Enter your registered email address and we'll send you a password reset link.
+        </p>
+        <div class="input-group" style="margin-bottom:var(--space-xl)">
+          <label class="input-label" for="fp-email">Registered Email</label>
+          <div class="input-with-icon">
+            <span class="input-icon">✉️</span>
+            <input class="input-field" type="email" id="fp-email" placeholder="Enter your email address">
+          </div>
+          <div class="form-error" id="fp-error" style="margin-top:8px"></div>
+        </div>
+        <button class="btn btn-primary w-full" onclick="sendResetEmail()" id="fp-send-btn">
+          📧 Send Reset Link
+        </button>
+      </div>
+
+
+
+      <!-- Step 3: Reset Password Form -->
+      <div class="fp-step" id="fp-step-3">
+        <div class="modal-header">
+          <h3 class="modal-title">🔐 Reset Password</h3>
+          <button class="modal-close" onclick="closeForgotPassword()">✕</button>
+        </div>
+        <p style="font-size:var(--text-sm);color:var(--text-muted);margin-bottom:var(--space-xl)">
+          Choose a strong new password for your account.
+        </p>
+        <div class="form-fields"
+          style="display:flex;flex-direction:column;gap:var(--space-md);margin-bottom:var(--space-xl)">
+          <div class="input-group">
+            <label class="input-label">New Password</label>
+            <div class="input-with-icon">
+              <span class="input-icon">🔒</span>
+              <input class="input-field" type="password" id="fp-new-pw" placeholder="Enter new password"
+                oninput="checkStrength()">
+              <button type="button" class="eye-toggle" onclick="togglePassword('fp-new-pw','eye-new')">👁️</button>
+            </div>
+            <!-- Strength meter -->
+            <div class="password-strength" id="strength-bars" style="margin-top:6px">
+              <div class="strength-bar" id="sb1"></div>
+              <div class="strength-bar" id="sb2"></div>
+              <div class="strength-bar" id="sb3"></div>
+              <div class="strength-bar" id="sb4"></div>
+              <span class="strength-label" id="strength-label">Weak</span>
+            </div>
+          </div>
+          <div class="input-group">
+            <label class="input-label">Confirm New Password</label>
+            <div class="input-with-icon">
+              <span class="input-icon">🔒</span>
+              <input class="input-field" type="password" id="fp-confirm-pw" placeholder="Confirm new password">
+              <button type="button" class="eye-toggle"
+                onclick="togglePassword('fp-confirm-pw','eye-confirm')">👁️</button>
+            </div>
+          </div>
+        </div>
+        <div class="form-error" id="fp-reset-error" style="margin-bottom:var(--space-md)"></div>
+        <button class="btn btn-primary w-full" onclick="doResetPassword()" id="fp-reset-btn">
+          ✅ Update Password
+        </button>
+      </div>
+
+      <!-- Step 4: Success -->
+      <div class="fp-step" id="fp-step-4">
+        <div style="text-align:center;padding:var(--space-md) 0">
+          <div style="font-size:64px;margin-bottom:var(--space-md)">🎉</div>
+          <h3 style="font-size:var(--text-xl);font-weight:700;margin-bottom:8px">Password Updated!</h3>
+          <p style="font-size:var(--text-sm);color:var(--text-muted);margin-bottom:var(--space-xl)">
+            Your password has been changed successfully. You can now sign in with your new password.
+          </p>
+          <button class="btn btn-primary w-full" onclick="closeForgotPassword()">
+            🔑 Back to Login
+          </button>
+        </div>
+      </div>
+
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    // Backend-backed auth: do not rely on browser localStorage for accounts.
+    let selectedRole = 'student';
+    let authMode = 'login';
+
+    const existing = JSON.parse(localStorage.getItem('sap_current_user') || localStorage.getItem('attendx_current_user') || 'null');
+    if (existing) {
+      window.location.href = existing.role === 'faculty' ? 'faculty.html' : 'student.html';
+    }
+
+    function updateAuthMode(mode = authMode) {
+      authMode = mode;
+      const isSignup = authMode === 'signup';
+      const loginForm = document.getElementById('login-form');
+      const signupForm = document.getElementById('signup-form');
+      const titleEl = document.getElementById('form-title');
+      const subtitleEl = document.getElementById('form-subtitle');
+      const toggleText = document.getElementById('auth-toggle-text');
+      const toggleBtn = document.getElementById('toggle-auth-btn');
+      const rollGroup = document.getElementById('signup-roll-group');
+
+      loginForm.classList.toggle('hidden', isSignup);
+      signupForm.classList.toggle('hidden', !isSignup);
+
+      titleEl.textContent = isSignup
+        ? (selectedRole === 'faculty' ? 'Faculty Sign Up' : 'Student Sign Up')
+        : (selectedRole === 'faculty' ? 'Faculty Login' : 'Student Login');
+
+      subtitleEl.textContent = isSignup
+        ? (selectedRole === 'faculty' ? 'Create your faculty account' : 'Create your student account')
+        : (selectedRole === 'faculty'
+          ? 'Access your dashboard and manage sessions'
+          : 'Sign in to mark your attendance');
+
+      toggleText.textContent = isSignup ? 'Already have an account?' : 'New here?';
+      toggleBtn.textContent = isSignup ? 'Sign in' : 'Create account';
+      rollGroup.classList.toggle('hidden', selectedRole !== 'student');
+    }
+
+    // ── Role Selector ─────────────────────────
+    function selectRole(role) {
+      selectedRole = role;
+      document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
+      document.getElementById(`role-${role}`).classList.add('selected');
+      updateAuthMode(authMode);
+    }
+
+    // ── Eye Toggle ────────────────────────────
+    function togglePassword(inputId, btnId) {
+      const inp = document.getElementById(inputId);
+      const btn = document.getElementById(btnId);
+      inp.type = inp.type === 'password' ? 'text' : 'password';
+      if (btn) btn.textContent = inp.type === 'password' ? '👁️' : '🙈';
+    }
+
+    // ── Login ─────────────────────────────────
+    function handleLogin(e) {
+      e.preventDefault();
+      const btn = document.getElementById('login-btn');
+      const errorEl = document.getElementById('form-error');
+      errorEl.classList.remove('visible');
+
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      if (!email || !password) {
+        errorEl.classList.add('visible');
+        return;
+      }
+
+      UI.setButtonLoading(btn, true);
+
+      SAP.login(email, password).then((user) => {
+        if (!user) {
+          UI.setButtonLoading(btn, false);
+          errorEl.classList.add('visible');
+          return;
+        }
+
+        UI.showToast(`Welcome, ${user.name.split(' ')[0]}! 👋`, 'success');
+        setTimeout(() => {
+          window.location.href = user.role === 'faculty' ? 'faculty.html' : 'student.html';
+        }, 400);
+      }).catch(() => {
+        UI.setButtonLoading(btn, false);
+        errorEl.classList.add('visible');
+      });
+    }
+
+    // ── Toggle Auth Mode ──────────────────────
+    function toggleAuthMode(targetMode = null) {
+      const nextMode = targetMode || (authMode === 'login' ? 'signup' : 'login');
+      updateAuthMode(nextMode);
+    }
+
+    // ── Sign Up ────────────────────────────────
+    function handleSignup(e) {
+      e.preventDefault();
+      const btn = document.getElementById('signup-btn');
+      const errorEl = document.getElementById('signup-error');
+      const name = document.getElementById('signup-name').value.trim();
+      const email = document.getElementById('signup-email').value.trim();
+      const password = document.getElementById('signup-password').value;
+      const confirmPassword = document.getElementById('signup-confirm-password').value;
+
+      errorEl.classList.remove('visible');
+
+      if (!name || !email || !password || !confirmPassword) {
+        errorEl.textContent = 'Please complete all required fields.';
+        errorEl.classList.add('visible');
+        return;
+      }
+
+
+      if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}/.test(password)) {
+        errorEl.textContent = 'Password must be at least 8 chars long and contain uppercase, lowercase, numbers, and special characters.';
+        errorEl.classList.add('visible');
+        return;
+      }
+
+      if (password !== confirmPassword) {
+        errorEl.textContent = 'Passwords do not match.';
+        errorEl.classList.add('visible');
+        return;
+      }
+
+      UI.setButtonLoading(btn, true);
+
+      SAP.signup({
+        role: selectedRole,
+        name,
+        email,
+        password
+      }).then((result) => {
+        if (result && result.error) {
+          errorEl.textContent = result.error;
+          errorEl.classList.add('visible');
+          UI.setButtonLoading(btn, false);
+          return;
+        }
+
+        if (!result || !result.id) {
+          errorEl.textContent = 'Unable to create your account. Please try again.';
+          errorEl.classList.add('visible');
+          UI.setButtonLoading(btn, false);
+          return;
+        }
+
+        UI.showToast(`Account created successfully! Please sign in to continue.`, 'success');
+        setTimeout(() => {
+          toggleAuthMode('login');
+          document.getElementById('email').value = email;
+          document.getElementById('password').focus();
+        }, 1000);
+      }).catch((error) => {
+        errorEl.textContent = error.message || 'Unable to create your account.';
+        errorEl.classList.add('visible');
+        UI.setButtonLoading(btn, false);
+      });
+    }
+
+
+
+    // ════════════════════════════════════════
+    // FORGOT PASSWORD FLOW
+    // ════════════════════════════════════════
+    let resetEmail = '';
+    let resetToken = '';
+
+    function openForgotPassword() {
+      // Pre-fill with whatever is in the email box
+      const currentEmail = document.getElementById('email').value.trim();
+      if (currentEmail) document.getElementById('fp-email').value = currentEmail;
+      showFpStep(1);
+      const fpError = document.getElementById('fp-error');
+      fpError.textContent = '';
+      fpError.classList.remove('visible');
+      document.getElementById('forgot-modal').classList.add('active');
+    }
+
+    function closeForgotPassword() {
+      document.getElementById('forgot-modal').classList.remove('active');
+      document.body.style.overflow = '';
+      // Reset state
+      resetEmail = '';
+      resetToken = '';
+      document.getElementById('fp-email').value = '';
+      document.getElementById('fp-new-pw').value = '';
+      document.getElementById('fp-confirm-pw').value = '';
+      const fpError = document.getElementById('fp-error');
+      fpError.textContent = '';
+      fpError.classList.remove('visible');
+      const fpResetError = document.getElementById('fp-reset-error');
+      fpResetError.textContent = '';
+      fpResetError.classList.remove('visible');
+    }
+
+    function showFpStep(n) {
+      document.querySelectorAll('.fp-step').forEach(s => s.classList.remove('active'));
+      document.getElementById(`fp-step-${n}`).classList.add('active');
+    }
+
+    async function sendResetEmail() {
+      const emailInput = document.getElementById('fp-email');
+      const email = emailInput.value.trim();
+      const errorEl = document.getElementById('fp-error');
+      const btn = document.getElementById('fp-send-btn');
+      errorEl.textContent = '';
+      errorEl.classList.remove('visible');
+
+      if (!email) {
+        errorEl.textContent = 'Please enter your email address.';
+        errorEl.classList.add('visible');
+        emailInput.focus();
+        return;
+      }
+
+      const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailPattern.test(email)) {
+        errorEl.textContent = 'Please enter a valid email address.';
+        errorEl.classList.add('visible');
+        emailInput.focus();
+        return;
+      }
+
+      UI.setButtonLoading(btn, true);
+
+      try {
+        const response = await fetch('/api/request-reset', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email })
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || 'Email not found in our system.');
+        }
+
+        resetEmail = email;
+        resetToken = data.resetToken || '';
+        if (resetToken) {
+          localStorage.setItem('attendx_reset_token', resetToken);
+        }
+        if (document.getElementById('fp-sent-to')) {
+          document.getElementById('fp-sent-to').textContent = email;
+        }
+
+        goToResetStep();
+      } catch (error) {
+        errorEl.textContent = error.message || 'Unable to send reset link. Please try again.';
+        errorEl.classList.add('visible');
+      } finally {
+        UI.setButtonLoading(btn, false);
+      }
+    }
+
+    function goToResetStep() {
+      document.getElementById('fp-new-pw').value = '';
+      document.getElementById('fp-confirm-pw').value = '';
+      document.getElementById('fp-reset-error').classList.remove('visible');
+      resetStrengthMeter();
+
+      if (resetToken) {
+        localStorage.setItem('attendx_reset_token', resetToken);
+        window.location.href = `reset-password.html?token=${encodeURIComponent(resetToken)}`;
+        return;
+      }
+
+      showFpStep(3);
+    }
+
+    // ── Password Strength Meter ───────────────
+    function checkStrength() {
+      const pw = document.getElementById('fp-new-pw').value;
+      let score = 0;
+      if (pw.length >= 8) score++;
+      if (/[A-Z]/.test(pw)) score++;
+      if (/[0-9]/.test(pw)) score++;
+      if (/[^A-Za-z0-9]/.test(pw)) score++;
+
+      const colors = ['', '#FF5B79', '#FFB347', '#6C63FF', '#00D4A1'];
+      const labels = ['', 'Weak', 'Fair', 'Good', 'Strong'];
+
+      for (let i = 1; i <= 4; i++) {
+        const bar = document.getElementById(`sb${i}`);
+        bar.style.background = i <= score ? colors[score] : 'var(--border-default)';
+      }
+      document.getElementById('strength-label').textContent = labels[score] || '';
+      document.getElementById('strength-label').style.color = colors[score] || 'var(--text-muted)';
+    }
+
+    function resetStrengthMeter() {
+      for (let i = 1; i <= 4; i++) {
+        document.getElementById(`sb${i}`).style.background = 'var(--border-default)';
+      }
+      document.getElementById('strength-label').textContent = '';
+    }
+
+    // ── Do Reset ─────────────────────────────
+    async function doResetPassword() {
+      const newPw = document.getElementById('fp-new-pw').value;
+      const confirm = document.getElementById('fp-confirm-pw').value;
+      const errorEl = document.getElementById('fp-reset-error');
+      const btn = document.getElementById('fp-reset-btn');
+      errorEl.classList.remove('visible');
+
+      if (!newPw || newPw.length < 6) {
+        errorEl.textContent = 'Password must be at least 6 characters.';
+        errorEl.classList.add('visible');
+        return;
+      }
+      if (newPw !== confirm) {
+        errorEl.textContent = 'Passwords do not match.';
+        errorEl.classList.add('visible');
+        return;
+      }
+
+      if (!resetToken) {
+        errorEl.textContent = 'Reset token is missing. Please request a new reset link.';
+        errorEl.classList.add('visible');
+        return;
+      }
+
+      UI.setButtonLoading(btn, true);
+
+      try {
+        const response = await fetch('/api/reset-password', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ token: resetToken, password: newPw })
+        });
+
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(data.error || 'Password reset failed.');
+        }
+
+        showFpStep(4);
+      } catch (error) {
+        errorEl.textContent = error.message || 'Password reset failed.';
+        errorEl.classList.add('visible');
+      } finally {
+        UI.setButtonLoading(btn, false);
+      }
+    }
+
+    // Close modal on backdrop click
+    document.getElementById('forgot-modal').addEventListener('click', function (e) {
+      if (e.target === this) closeForgotPassword();
+    });
+    // ════════════════════════════════════════
+    // PASSWORD STRENGTH
+    // ════════════════════════════════════════
+    function checkPasswordStrength(password) {
+      const meter = document.getElementById('strength-meter');
+      const bars = document.getElementById('strength-bars');
+      const text = document.getElementById('strength-text');
+      
+      if (!password) {
+        meter.classList.remove('visible');
+        return;
+      }
+      
+      meter.classList.add('visible');
+      
+      let strength = 0;
+      if (password.length >= 8) strength++;
+      if (/[A-Z]/.test(password) && /[a-z]/.test(password)) strength++;
+      if (/[0-9]/.test(password)) strength++;
+      if (/[^A-Za-z0-9]/.test(password)) strength++;
+      
+      bars.className = 'strength-bars';
+      if (strength === 1 || (strength === 0 && password.length > 0)) {
+        bars.classList.add('strength-weak');
+        text.textContent = 'Weak';
+        text.style.color = '#ef4444';
+      } else if (strength === 2) {
+        bars.classList.add('strength-fair');
+        text.textContent = 'Fair';
+        text.style.color = '#eab308';
+      } else if (strength === 3) {
+        bars.classList.add('strength-good');
+        text.textContent = 'Good';
+        text.style.color = '#3b82f6';
+      } else if (strength === 4) {
+        bars.classList.add('strength-strong');
+        text.textContent = 'Strong';
+        text.style.color = '#22c55e';
+      }
+    }
+
+  </script>
+</body>
+
+</html>

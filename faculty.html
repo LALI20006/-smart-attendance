@@ -1,0 +1,929 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AttendPro — Faculty Dashboard</title>
+  <meta name="description" content="Faculty attendance dashboard — manage sessions, monitor attendance, identify at-risk students, and generate reports.">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/faculty.css">
+</head>
+<body>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="faculty-layout">
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">🎓</div>
+        <span class="sidebar-logo-text">AttendPro</span>
+      </div>
+
+      <div class="sidebar-user">
+        <div id="sidebar-avatar"></div>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name" id="sidebar-name">—</div>
+          <div class="sidebar-user-role">Faculty</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">Main</div>
+        <button class="nav-item active" id="nav-dashboard" onclick="switchTab('dashboard')">
+          <span class="nav-item-icon">📊</span> Dashboard
+        </button>
+        <button class="nav-item" id="nav-sessions" onclick="switchTab('sessions')">
+          <span class="nav-item-icon">📡</span> Sessions
+        </button>
+        <button class="nav-item" id="nav-students" onclick="switchTab('students')">
+          <span class="nav-item-icon">👥</span> Students
+          <span class="nav-item-badge" id="atrisk-badge" style="display:none">!</span>
+        </button>
+        <button class="nav-item" id="nav-reports" onclick="switchTab('reports')">
+          <span class="nav-item-icon">📋</span> Reports
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="btn btn-ghost w-full btn-sm" onclick="handleLogout()">
+          🚪 Sign Out
+        </button>
+      </div>
+    </aside>
+
+    <!-- ── Main Content ── -->
+    <div class="faculty-main">
+
+      <div class="topbar">
+        <div>
+          <div class="topbar-title" id="topbar-title">Dashboard</div>
+          <div class="topbar-subtitle" id="topbar-subtitle">Overview of your attendance data</div>
+        </div>
+        <div class="topbar-actions">
+          <div style="display:flex;align-items:center;gap:8px;font-size:var(--text-xs);color:var(--text-muted)">
+            <span>📅</span>
+            <span id="topbar-date"></span>
+            <span class="badge badge-primary" style="font-size:10px">Jul 20 – Dec 30, 2026</span>
+          </div>
+          <button class="btn btn-primary btn-sm" onclick="switchTab('sessions');showCreateSession()">
+            ➕ New Session
+          </button>
+        </div>
+      </div>
+
+      <!-- Page Content -->
+      <div class="page-content" id="page-content">
+
+        <!-- ═══════════════════════════════════
+             TAB: DASHBOARD
+        ════════════════════════════════════ -->
+        <div class="tab-panel active" id="tab-dashboard">
+
+          <!-- KPI Cards -->
+          <div class="kpi-grid">
+            <div class="kpi-card primary">
+              <span class="kpi-icon">👥</span>
+              <div class="kpi-value" id="kpi-students">—</div>
+              <div class="kpi-label">Total Students</div>
+            </div>
+            <div class="kpi-card success">
+              <span class="kpi-icon">📡</span>
+              <div class="kpi-value" id="kpi-sessions">—</div>
+              <div class="kpi-label">Sessions Today</div>
+            </div>
+            <div class="kpi-card info">
+              <span class="kpi-icon">🟢</span>
+              <div class="kpi-value" id="kpi-online">—</div>
+              <div class="kpi-label">Logged In Now</div>
+            </div>
+            <div class="kpi-card warning">
+              <span class="kpi-icon">📈</span>
+              <div class="kpi-value" id="kpi-avg">—%</div>
+              <div class="kpi-label">Avg. Attendance</div>
+            </div>
+            <div class="kpi-card danger">
+              <span class="kpi-icon">⚠️</span>
+              <div class="kpi-value" id="kpi-atrisk">—</div>
+              <div class="kpi-label">At-Risk Students</div>
+            </div>
+          </div>
+
+          <!-- Charts Row -->
+          <div class="charts-grid">
+            <div class="chart-card">
+              <div class="chart-header">
+                <div class="chart-title">Overall Attendance</div>
+                <div class="chart-subtitle">Present vs Absent across all sessions</div>
+              </div>
+              <div class="chart-container" style="height:200px">
+                <canvas id="chart-doughnut"></canvas>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-header">
+                <div class="chart-title">Per-Subject Attendance</div>
+                <div class="chart-subtitle">Average attendance % by subject</div>
+              </div>
+              <div class="chart-container" style="height:200px">
+                <canvas id="chart-bar"></canvas>
+              </div>
+            </div>
+            <div class="chart-card">
+              <div class="chart-header">
+                <div class="chart-title">Weekly Trend</div>
+                <div class="chart-subtitle">Attendance % over last 6 weeks</div>
+              </div>
+              <div class="chart-container" style="height:200px">
+                <canvas id="chart-line"></canvas>
+              </div>
+            </div>
+          </div>
+
+          <!-- Student Attendance Chart -->
+          <div class="chart-card" style="margin-bottom:var(--space-xl)">
+            <div class="chart-header">
+              <div class="chart-title">Student-wise Attendance</div>
+              <div class="chart-subtitle">Top 8 students — horizontal bars</div>
+            </div>
+            <div class="chart-container" style="height:260px">
+              <canvas id="chart-student-bar"></canvas>
+            </div>
+          </div>
+
+          <!-- Subjects Summary -->
+          <div class="section-header">
+            <h2 class="section-title">📚 Subject Summary</h2>
+          </div>
+          <div class="table-wrapper" style="background:var(--bg-card);border-radius:var(--radius-xl);border:1px solid var(--border-subtle)">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <th>Code</th>
+                  <th>Enrolled</th>
+                  <th>Sessions Held</th>
+                  <th>Avg. Attendance</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody id="subject-summary-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════
+             TAB: SESSIONS
+        ════════════════════════════════════ -->
+        <div class="tab-panel" id="tab-sessions">
+
+          <!-- Create Session -->
+          <div class="create-session-card" id="create-session-form">
+            <h3 style="font-size:var(--text-lg);font-weight:700;margin-bottom:var(--space-lg)">➕ Start New Session</h3>
+            <div style="display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:var(--space-md);align-items:end">
+              <div class="input-group">
+                <label class="input-label">Subject</label>
+                <select class="input-field" id="new-sess-subject">
+                  <option value="">Select subject...</option>
+                </select>
+              </div>
+              <div class="input-group">
+                <label class="input-label">Topic</label>
+                <input class="input-field" type="text" id="new-sess-topic" placeholder="e.g. Arrays & Trees">
+              </div>
+              <div class="input-group">
+                <label class="input-label">Duration</label>
+                <select class="input-field" id="new-sess-duration">
+                  <option value="5">5 minutes (demo)</option>
+                  <option value="10">10 minutes</option>
+                  <option value="15">15 minutes</option>
+                  <option value="30">30 minutes</option>
+                </select>
+              </div>
+              <button class="btn btn-primary" onclick="createNewSession()" id="create-sess-btn">
+                🚀 Generate QR
+              </button>
+            </div>
+          </div>
+
+          <!-- Active Session Display -->
+          <div id="active-session-panel" style="display:none">
+            <div class="sessions-panel-grid">
+
+              <!-- QR Card -->
+              <div class="active-session-qr-card">
+                <div class="qr-card-header">
+                  <div>
+                    <div class="qr-card-title" id="active-sess-title">Session Active</div>
+                    <div style="font-size:var(--text-xs);color:var(--text-muted)" id="active-sess-sub">—</div>
+                  </div>
+                  <span class="badge badge-success" style="animation:pulse 1.5s infinite">● LIVE</span>
+                </div>
+
+                <div class="qr-display">
+                  <div id="qr-code-container"></div>
+
+                  <div>
+                    <div style="text-align:center;font-size:var(--text-xs);color:var(--text-muted);margin-bottom:4px">Expires in</div>
+                    <div class="countdown-display" id="qr-countdown">05:00</div>
+                  </div>
+
+                  <div style="background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:12px 16px;width:100%">
+                    <div style="font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Session Token</div>
+                    <div style="font-size:11px;color:var(--primary-light);font-family:monospace;word-break:break-all" id="session-token-display">—</div>
+                  </div>
+
+                  <button class="btn btn-danger btn-sm w-full" onclick="endCurrentSession()">
+                    ⏹ End Session
+                  </button>
+                </div>
+              </div>
+
+              <!-- Live Roster -->
+              <div class="session-roster-card">
+                <div class="roster-header">
+                  <div>
+                    <div style="font-size:var(--text-base);font-weight:700">Live Roster</div>
+                    <div style="font-size:var(--text-xs);color:var(--text-muted)">Students checked in</div>
+                  </div>
+                  <div style="text-align:right">
+                    <div class="roster-count" id="roster-count">0</div>
+                    <div style="font-size:var(--text-xs);color:var(--text-muted)" id="roster-total">/ 0 enrolled</div>
+                  </div>
+                </div>
+                <div class="roster-list" id="roster-list">
+                  <div class="empty-state">
+                    <div class="empty-icon">👀</div>
+                    <div class="empty-title">Waiting for students...</div>
+                    <div class="empty-desc">Students will appear here as they scan the QR code</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Past Sessions Table -->
+          <div style="margin-top:var(--space-xl)">
+            <div class="section-header">
+              <h2 class="section-title">📁 Past Sessions</h2>
+              <select class="input-field" id="sessions-filter-sub" style="width:auto;padding:8px 12px;font-size:13px" onchange="renderPastSessions()">
+                <option value="">All Subjects</option>
+              </select>
+            </div>
+            <div class="table-wrapper" style="background:var(--bg-card);border-radius:var(--radius-xl);border:1px solid var(--border-subtle)">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Subject</th>
+                    <th>Topic</th>
+                    <th>Start Time</th>
+                    <th>Present</th>
+                    <th>Enrolled</th>
+                    <th>Rate</th>
+                  </tr>
+                </thead>
+                <tbody id="past-sessions-tbody"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════
+             TAB: STUDENTS
+        ════════════════════════════════════ -->
+        <div class="tab-panel" id="tab-students">
+
+          <!-- At-Risk Banner -->
+          <div class="at-risk-banner" id="atrisk-banner">
+            <div class="at-risk-icon">🚨</div>
+            <div>
+              <div class="at-risk-count" id="atrisk-count">0</div>
+              <div class="at-risk-label">Students below 75% attendance threshold</div>
+            </div>
+            <div style="margin-left:auto">
+              <button class="btn btn-danger btn-sm" onclick="filterAtRisk()">View At-Risk Only</button>
+            </div>
+          </div>
+
+          <!-- Toolbar -->
+          <div class="students-toolbar">
+            <div class="search-box">
+              <span class="search-icon">🔍</span>
+              <input class="input-field" type="text" id="student-search" placeholder="Search students by name or roll no..." oninput="renderStudentsTable()">
+            </div>
+            <select class="input-field" id="student-filter-sub" style="width:auto;padding:10px 14px;font-size:13px" onchange="renderStudentsTable()">
+              <option value="">All Subjects</option>
+            </select>
+            <select class="input-field" id="student-filter-status" style="width:auto;padding:10px 14px;font-size:13px" onchange="renderStudentsTable()">
+              <option value="">All Students</option>
+              <option value="atrisk">At Risk (&lt;75%)</option>
+              <option value="good">Good (≥75%)</option>
+            </select>
+            <button class="btn btn-ghost btn-sm" onclick="document.getElementById('student-search').value='';document.getElementById('student-filter-status').value='';renderStudentsTable()">Clear</button>
+          </div>
+
+          <div class="table-wrapper" style="background:var(--bg-card);border-radius:var(--radius-xl);border:1px solid var(--border-subtle)">
+            <table class="data-table" id="students-table">
+              <thead>
+                <tr>
+                  <th>Student</th>
+                  <th>Roll No.</th>
+                  <th>Sessions Attended</th>
+                  <th>Overall %</th>
+                  <th>Status</th>
+                  <th>Actions</th>
+                </tr>
+              </thead>
+              <tbody id="students-tbody"></tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════
+             TAB: REPORTS
+        ════════════════════════════════════ -->
+        <div class="tab-panel" id="tab-reports">
+
+          <!-- Filters -->
+          <div class="reports-filters">
+            <div class="input-group">
+              <label class="input-label">Subject</label>
+              <select class="input-field" id="report-subject">
+                <option value="">All Subjects</option>
+              </select>
+            </div>
+            <div class="input-group">
+              <label class="input-label">From Date</label>
+              <input class="input-field" type="date" id="report-start">
+            </div>
+            <div class="input-group">
+              <label class="input-label">To Date</label>
+              <input class="input-field" type="date" id="report-end">
+            </div>
+            <div style="display:flex;gap:8px;align-items:flex-end">
+              <button class="btn btn-primary" onclick="generateReport()">📊 Generate</button>
+              <button class="btn btn-secondary" onclick="exportReport()" id="export-btn" disabled>⬇ CSV</button>
+            </div>
+          </div>
+
+          <!-- Summary Cards -->
+          <div class="report-summary-cards" id="report-summary-cards" style="display:none">
+            <div class="stat-card">
+              <div class="stat-icon" style="background:rgba(108,99,255,0.15);font-size:20px">📅</div>
+              <div class="stat-value" id="rpt-sessions">—</div>
+              <div class="stat-label">Sessions in Range</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon" style="background:rgba(0,212,161,0.15);font-size:20px">✅</div>
+              <div class="stat-value" id="rpt-avg">—%</div>
+              <div class="stat-label">Average Attendance</div>
+            </div>
+            <div class="stat-card">
+              <div class="stat-icon" style="background:rgba(255,91,121,0.15);font-size:20px">⚠️</div>
+              <div class="stat-value" id="rpt-atrisk">—</div>
+              <div class="stat-label">At-Risk Students</div>
+            </div>
+          </div>
+
+          <!-- Report Table -->
+          <div id="report-table-container" style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);overflow:hidden">
+            <div class="empty-state">
+              <div class="empty-icon">📋</div>
+              <div class="empty-title">Select filters and generate report</div>
+              <div class="empty-desc">Choose a subject and date range, then click Generate</div>
+            </div>
+          </div>
+
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Student Detail Modal ── -->
+  <div class="modal-overlay" id="student-modal">
+    <div class="modal" style="max-width:520px">
+      <div class="modal-header">
+        <h3 class="modal-title">Student Details</h3>
+        <button class="modal-close" onclick="UI.closeModal('student-modal')">✕</button>
+      </div>
+      <div id="student-modal-body"></div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <!-- CDN Libraries -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.2/dist/chart.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/qrcodejs@1.0.0/qrcode.min.js"></script>
+
+  <script src="js/data.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/qr-generator.js"></script>
+  <script src="js/charts.js"></script>
+  <script src="js/reports.js"></script>
+
+  <script>
+    let currentUser = null;
+    let dashStats = null;
+    let activeSession = null;
+    let rosterInterval = null;
+    let qrTimerInterval = null;
+    let currentReportData = null;
+    let showingAtRiskOnly = false;
+
+    // ── Init ─────────────────────────────────
+    function init() {
+      SAP.seed();
+      currentUser = UI.requireAuth('faculty');
+      if (!currentUser) return;
+
+      renderSidebar();
+      loadStats();
+      populateSubjectDropdowns();
+      setTopbarDate();
+      switchTab('dashboard');
+    }
+
+    function setTopbarDate() {
+      document.getElementById('topbar-date').textContent =
+        new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+    }
+
+    // ── Sidebar ───────────────────────────────
+    function renderSidebar() {
+      document.getElementById('sidebar-name').textContent = currentUser.name;
+      const avEl = document.getElementById('sidebar-avatar');
+      avEl.outerHTML = `<div id="sidebar-avatar">${UI.avatarEl(currentUser.name, 44)}</div>`;
+    }
+
+    // ── Tab Switching ─────────────────────────
+    const TAB_META = {
+      dashboard: { title: 'Dashboard', subtitle: 'Overview of your attendance data' },
+      sessions:  { title: 'Sessions',  subtitle: 'Manage live and past sessions' },
+      students:  { title: 'Students',  subtitle: 'Monitor individual student attendance' },
+      reports:   { title: 'Reports',   subtitle: 'Generate and export attendance reports' },
+    };
+
+    function switchTab(tab) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+      document.getElementById(`tab-${tab}`).classList.add('active');
+      document.getElementById(`nav-${tab}`).classList.add('active');
+      const meta = TAB_META[tab];
+      document.getElementById('topbar-title').textContent = meta.title;
+      document.getElementById('topbar-subtitle').textContent = meta.subtitle;
+
+      if (tab === 'dashboard') renderDashboard();
+      if (tab === 'sessions')  renderSessionsTab();
+      if (tab === 'students')  renderStudentsTab();
+      if (tab === 'reports')   renderReportsTab();
+    }
+
+    // ── Load Stats ────────────────────────────
+    function loadStats() {
+      dashStats = SAP.getFacultyDashboardStats(currentUser.id);
+      const atRiskCount = dashStats.atRiskCount;
+      const badge = document.getElementById('atrisk-badge');
+      badge.style.display = atRiskCount > 0 ? 'block' : 'none';
+      badge.textContent = atRiskCount;
+    }
+
+    async function loadOnlineUserCount() {
+      try {
+        const result = await SAP.getOnlineUsers();
+        const total = result && typeof result.total === 'number' ? result.total : 0;
+        document.getElementById('kpi-online').textContent = total;
+      } catch (error) {
+        document.getElementById('kpi-online').textContent = '0';
+      }
+    }
+
+    // ── Populate Dropdowns ────────────────────
+    function populateSubjectDropdowns() {
+      const subjects = SAP.getSubjectsByFaculty(currentUser.id);
+      const selects = ['new-sess-subject','sessions-filter-sub','student-filter-sub','report-subject'];
+      selects.forEach(id => {
+        const el = document.getElementById(id);
+        if (!el) return;
+        const existingOptions = el.querySelectorAll('option:not(:first-child)');
+        existingOptions.forEach(o => o.remove());
+        subjects.forEach(sub => {
+          const opt = document.createElement('option');
+          opt.value = sub.id;
+          opt.textContent = `${sub.code} — ${sub.name}`;
+          el.appendChild(opt);
+        });
+      });
+    }
+
+    // ═══════════════════════════════════════
+    // DASHBOARD TAB
+    // ═══════════════════════════════════════
+    function renderDashboard() {
+      loadStats();
+      const s = dashStats;
+
+      // KPI
+      document.getElementById('kpi-students').textContent = s.totalStudents;
+      document.getElementById('kpi-sessions').textContent = s.sessionsToday;
+      document.getElementById('kpi-atrisk').textContent = s.atRiskCount;
+      loadOnlineUserCount();
+
+      // Avg attendance
+      const allAtt = SAP.getAttendance().filter(a => s.mySessions.some(sess => sess.id === a.sessionId));
+      const possibleSlots = s.mySessions.reduce((acc, sess) => {
+        const sub = SAP.getSubjectById(sess.subjectId);
+        return acc + (sub?.enrolledStudents.length || 0);
+      }, 0);
+      const avgPct = possibleSlots > 0 ? Math.round((allAtt.length / possibleSlots) * 100) : 0;
+      document.getElementById('kpi-avg').textContent = avgPct + '%';
+
+      // Charts
+      Charts.renderOverallDoughnut('chart-doughnut', allAtt.length, possibleSlots);
+      Charts.renderSubjectBar('chart-bar', s.subjectStats);
+      Charts.renderWeeklyLine('chart-line', SAP.getWeeklyTrend(currentUser.id));
+      Charts.renderStudentAttendanceBar('chart-student-bar', s.studentStats);
+
+      // Subject summary table
+      const tbody = document.getElementById('subject-summary-tbody');
+      tbody.innerHTML = s.subjectStats.map(ss => {
+        const statusBadge = ss.avgAttendance >= 75
+          ? '<span class="badge badge-success">Good</span>'
+          : ss.avgAttendance >= 60
+          ? '<span class="badge badge-warning">Fair</span>'
+          : '<span class="badge badge-danger">At Risk</span>';
+        return `
+          <tr>
+            <td class="bold">${ss.subject.name}</td>
+            <td><span class="badge badge-primary">${ss.subject.code}</span></td>
+            <td>${ss.subject.enrolledStudents.length}</td>
+            <td>${ss.sessions}</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:10px;min-width:140px">
+                <div class="progress-bar" style="flex:1">
+                  <div class="progress-fill ${ss.avgAttendance < 60 ? 'danger' : ss.avgAttendance < 75 ? 'warning' : ''}" style="width:${ss.avgAttendance}%"></div>
+                </div>
+                <span style="font-size:12px;font-weight:700;color:var(--text-primary)">${ss.avgAttendance}%</span>
+              </div>
+            </td>
+            <td>${statusBadge}</td>
+          </tr>`;
+      }).join('');
+    }
+
+    // ═══════════════════════════════════════
+    // SESSIONS TAB
+    // ═══════════════════════════════════════
+    function renderSessionsTab() {
+      renderPastSessions();
+      // If there's an active session, show it
+      if (activeSession) showActiveSessionPanel();
+    }
+
+    function showCreateSession() {
+      document.getElementById('create-session-form').scrollIntoView({ behavior: 'smooth' });
+    }
+
+    function createNewSession() {
+      const subjectId    = document.getElementById('new-sess-subject').value;
+      const topic        = document.getElementById('new-sess-topic').value.trim() || 'Lecture';
+      const durationMins = parseInt(document.getElementById('new-sess-duration').value) || 5;
+
+      if (!subjectId) { UI.showToast('Please select a subject', 'warning'); return; }
+
+      // End any existing active session first
+      if (activeSession) {
+        SAP.expireSession(activeSession.id);
+        clearInterval(rosterInterval);
+        clearInterval(qrTimerInterval);
+      }
+
+      const result = SAP.createSession(subjectId, currentUser.id, topic, durationMins);
+
+      // Check for academic year validation error
+      if (result && result.error) {
+        UI.showToast(result.error, 'error');
+        return;
+      }
+
+      activeSession = result;
+      showActiveSessionPanel();
+      UI.showToast(`Session started! QR code is live for ${durationMins} min.`, 'success');
+    }
+
+    function showActiveSessionPanel() {
+      const panel = document.getElementById('active-session-panel');
+      panel.style.display = 'block';
+      panel.scrollIntoView({ behavior: 'smooth', block: 'start' });
+
+      const sub = SAP.getSubjectById(activeSession.subjectId);
+      document.getElementById('active-sess-title').textContent = `${sub?.name || 'Session'} — ${activeSession.topic}`;
+      document.getElementById('active-sess-sub').textContent = `${sub?.code} · Started ${activeSession.startTime}`;
+      document.getElementById('session-token-display').textContent = activeSession.qrToken;
+
+      // Generate QR using qrcode.js CDN (available via window.QRCode)
+      const container = document.getElementById('qr-code-container');
+      container.innerHTML = '';
+      const wrapper = document.createElement('div');
+      wrapper.style.cssText = 'display:inline-flex;align-items:center;justify-content:center;padding:16px;background:white;border-radius:16px;box-shadow:0 0 40px rgba(108,99,255,0.4)';
+      container.appendChild(wrapper);
+      new QRCode(wrapper, {
+        text: activeSession.qrToken,
+        width: 220, height: 220,
+        colorDark: '#0A0B1A', colorLight: '#FFFFFF',
+        correctLevel: QRCode.CorrectLevel.H,
+      });
+
+      // Countdown
+      clearInterval(qrTimerInterval);
+      qrTimerInterval = setInterval(() => {
+        const remaining = activeSession.expiresAt - Date.now();
+        const el = document.getElementById('qr-countdown');
+        if (remaining <= 0) {
+          clearInterval(qrTimerInterval);
+          if (el) { el.textContent = '00:00'; el.style.color = 'var(--danger)'; }
+          endCurrentSession();
+        } else {
+          if (el) {
+            el.textContent = UI.countdown(activeSession.expiresAt);
+            if (remaining < 60000) el.style.color = 'var(--danger)';
+            else if (remaining < 120000) el.style.color = 'var(--warning)';
+          }
+        }
+      }, 500);
+
+      // Live roster polling
+      clearInterval(rosterInterval);
+      updateRoster();
+      rosterInterval = setInterval(updateRoster, 2000);
+    }
+
+    function updateRoster() {
+      if (!activeSession) return;
+      const present = SAP.getAttendanceBySession(activeSession.id);
+      const sub = SAP.getSubjectById(activeSession.subjectId);
+      const enrolled = sub?.enrolledStudents?.length || 0;
+
+      document.getElementById('roster-count').textContent = present.length;
+      document.getElementById('roster-total').textContent = `/ ${enrolled} enrolled`;
+
+      const list = document.getElementById('roster-list');
+      if (!present.length) {
+        list.innerHTML = `
+          <div class="empty-state" style="padding:var(--space-2xl)">
+            <div class="empty-icon">👀</div>
+            <div class="empty-title">Waiting for students...</div>
+            <div class="empty-desc">Students will appear here as they scan the QR</div>
+          </div>`;
+        return;
+      }
+
+      list.innerHTML = present.map((rec, i) => {
+        const student = SAP.getUserById(rec.studentId);
+        return `
+          <div class="roster-item" style="animation-delay:${i*50}ms">
+            ${UI.avatarEl(student?.name || '?', 32)}
+            <div>
+              <div class="roster-item-name">${student?.name || 'Unknown'}</div>
+              <div style="font-size:10px;color:var(--text-muted)">${student?.rollNo || ''}</div>
+            </div>
+            <div class="roster-item-time">${new Date(rec.timestamp).toLocaleTimeString('en-IN',{hour:'2-digit',minute:'2-digit'})}</div>
+          </div>`;
+      }).join('');
+    }
+
+    function endCurrentSession() {
+      if (!activeSession) return;
+      SAP.expireSession(activeSession.id);
+      clearInterval(rosterInterval);
+      clearInterval(qrTimerInterval);
+
+      const finalCount = SAP.getAttendanceBySession(activeSession.id).length;
+      UI.showToast(`Session ended. ${finalCount} students marked present.`, 'info');
+      activeSession = null;
+      document.getElementById('active-session-panel').style.display = 'none';
+      renderPastSessions();
+    }
+
+    function renderPastSessions() {
+      const filterSubId = document.getElementById('sessions-filter-sub')?.value || '';
+      let sessions = SAP.getSessionsByFaculty(currentUser.id)
+        .filter(s => s.status === 'expired')
+        .sort((a,b) => new Date(b.date+' '+b.startTime) - new Date(a.date+' '+a.startTime))
+        .slice(0, 50);
+
+      if (filterSubId) sessions = sessions.filter(s => s.subjectId === filterSubId);
+
+      const tbody = document.getElementById('past-sessions-tbody');
+      if (!sessions.length) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;color:var(--text-muted);padding:32px">No past sessions yet</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = sessions.map(sess => {
+        const sub = SAP.getSubjectById(sess.subjectId);
+        const present = SAP.getAttendanceBySession(sess.id).length;
+        const enrolled = sub?.enrolledStudents.length || 0;
+        const rate = enrolled > 0 ? Math.round((present / enrolled) * 100) : 0;
+        const color = rate >= 75 ? 'var(--success)' : rate >= 60 ? 'var(--warning)' : 'var(--danger)';
+        return `
+          <tr>
+            <td class="bold">${UI.formatDate(sess.date)}</td>
+            <td>${sub?.name || '—'}</td>
+            <td>${sess.topic || 'Lecture'}</td>
+            <td>${sess.startTime}</td>
+            <td style="color:var(--success);font-weight:600">${present}</td>
+            <td style="color:var(--text-muted)">${enrolled}</td>
+            <td style="color:${color};font-weight:700">${rate}%</td>
+          </tr>`;
+      }).join('');
+    }
+
+    // ═══════════════════════════════════════
+    // STUDENTS TAB
+    // ═══════════════════════════════════════
+    function renderStudentsTab() {
+      loadStats();
+      const count = dashStats.atRiskCount;
+      document.getElementById('atrisk-count').textContent = count;
+      document.getElementById('atrisk-banner').style.display = count > 0 ? 'flex' : 'none';
+      renderStudentsTable();
+    }
+
+    function filterAtRisk() {
+      showingAtRiskOnly = !showingAtRiskOnly;
+      document.getElementById('student-filter-status').value = showingAtRiskOnly ? 'atrisk' : '';
+      renderStudentsTable();
+    }
+
+    function renderStudentsTable() {
+      const search = document.getElementById('student-search').value.toLowerCase();
+      const filterSub = document.getElementById('student-filter-sub').value;
+      const filterStatus = document.getElementById('student-filter-status').value;
+
+      let students = dashStats.studentStats;
+
+      if (search) {
+        students = students.filter(s =>
+          s.student.name.toLowerCase().includes(search) ||
+          (s.student.rollNo || '').toLowerCase().includes(search)
+        );
+      }
+      if (filterStatus === 'atrisk') students = students.filter(s => s.isAtRisk);
+      if (filterStatus === 'good')   students = students.filter(s => !s.isAtRisk);
+
+      const tbody = document.getElementById('students-tbody');
+      if (!students.length) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:32px">No students match filters</td></tr>`;
+        return;
+      }
+
+      tbody.innerHTML = students.map(ss => {
+        const color = ss.percentage >= 75 ? 'var(--success)' : ss.percentage >= 60 ? 'var(--warning)' : 'var(--danger)';
+        const statusBadge = ss.isAtRisk
+          ? '<span class="badge badge-danger">⚠ At Risk</span>'
+          : '<span class="badge badge-success">✓ Good</span>';
+        return `
+          <tr class="${ss.isAtRisk ? 'at-risk-row' : ''}">
+            <td>
+              <div style="display:flex;align-items:center;gap:10px">
+                ${UI.avatarEl(ss.student.name, 36)}
+                <div>
+                  <div style="font-weight:600;color:var(--text-primary)">${ss.student.name}</div>
+                  <div style="font-size:11px;color:var(--text-muted)">${ss.student.email}</div>
+                </div>
+              </div>
+            </td>
+            <td>${ss.student.rollNo || '—'}</td>
+            <td style="color:var(--text-secondary)">${ss.attended} / ${ss.totalSessions}</td>
+            <td>
+              <div style="display:flex;align-items:center;gap:10px;min-width:120px">
+                <div class="progress-bar" style="flex:1">
+                  <div class="progress-fill ${ss.percentage < 60 ? 'danger' : ss.percentage < 75 ? 'warning' : ''}" style="width:${ss.percentage}%"></div>
+                </div>
+                <span style="color:${color};font-weight:700;font-size:13px">${ss.percentage}%</span>
+              </div>
+            </td>
+            <td>${statusBadge}</td>
+            <td>
+              <button class="btn btn-ghost btn-sm" onclick="showStudentDetail('${ss.student.id}')">View Details</button>
+            </td>
+          </tr>`;
+      }).join('');
+    }
+
+    function showStudentDetail(studentId) {
+      const student = SAP.getUserById(studentId);
+      const stats = SAP.getStudentAttendanceStats(studentId);
+      // Filter to only faculty's subjects
+      const mySubIds = SAP.getSubjectsByFaculty(currentUser.id).map(s => s.id);
+      const myStats = stats.filter(s => mySubIds.includes(s.subject.id));
+
+      const totalAttended = myStats.reduce((a,b) => a+b.attended, 0);
+      const totalSessions  = myStats.reduce((a,b) => a+b.total,   0);
+      const overallPct = totalSessions > 0 ? Math.round((totalAttended/totalSessions)*100) : 0;
+
+      const body = document.getElementById('student-modal-body');
+      body.innerHTML = `
+        <div class="student-detail-header">
+          ${UI.avatarEl(student.name, 56)}
+          <div class="student-detail-info">
+            <div class="student-detail-name">${student.name}</div>
+            <div class="student-detail-roll">${student.rollNo || ''} · ${student.email}</div>
+          </div>
+          <div style="text-align:right">
+            ${UI.renderRing(overallPct, 80, 8)}
+          </div>
+        </div>
+        <div style="margin-bottom:var(--space-md)">
+          ${myStats.map(s => {
+            const c = s.percentage >= 75 ? 'var(--success)' : s.percentage >= 60 ? 'var(--warning)' : 'var(--danger)';
+            return `
+              <div class="detail-subject-row">
+                <div class="detail-subject-name">${s.subject.name}</div>
+                <div style="flex:1;max-width:140px">
+                  <div class="progress-bar">
+                    <div class="progress-fill ${s.percentage<60?'danger':s.percentage<75?'warning':''}" style="width:${s.percentage}%"></div>
+                  </div>
+                </div>
+                <div class="detail-subject-count" style="color:${c};font-weight:700">${s.percentage}%</div>
+                <div class="detail-subject-count">${s.attended}/${s.total}</div>
+              </div>`;
+          }).join('')}
+        </div>
+        ${overallPct < 75
+          ? `<div style="background:rgba(255,91,121,0.1);border:1px solid rgba(255,91,121,0.3);border-radius:12px;padding:12px 16px;font-size:13px;color:var(--danger)">
+               ⚠ This student is below the 75% attendance threshold and may need counseling.
+             </div>`
+          : ''}`;
+
+      UI.openModal('student-modal');
+    }
+
+    // ═══════════════════════════════════════
+    // REPORTS TAB
+    // ═══════════════════════════════════════
+    function renderReportsTab() {
+      // Default range = full academic year: Jul 20 – Dec 30, 2026
+      const AY = SAP.DB.ACADEMIC_YEAR;
+      if (!document.getElementById('report-start').value) document.getElementById('report-start').value = AY.start;
+      if (!document.getElementById('report-end').value)   document.getElementById('report-end').value   = AY.end;
+      // Enforce min/max
+      document.getElementById('report-start').min = AY.start;
+      document.getElementById('report-start').max = AY.end;
+      document.getElementById('report-end').min   = AY.start;
+      document.getElementById('report-end').max   = AY.end;
+    }
+
+    function generateReport() {
+      const subjectId = document.getElementById('report-subject').value;
+      const startDate = document.getElementById('report-start').value;
+      const endDate   = document.getElementById('report-end').value;
+
+      currentReportData = Reports.buildReportData({ facultyId: currentUser.id, subjectId, startDate, endDate });
+      Reports.renderReportTable('report-table-container', currentReportData);
+
+      // Summary cards
+      const cards = document.getElementById('report-summary-cards');
+      cards.style.display = 'grid';
+
+      document.getElementById('rpt-sessions').textContent = currentReportData.sessions.length;
+
+      const totalAttended = currentReportData.rows.reduce((a,b) => a + b.totalAttended, 0);
+      const totalSlots    = currentReportData.rows.reduce((a,b) => a + b.totalSessions, 0);
+      const avg = totalSlots > 0 ? Math.round((totalAttended/totalSlots)*100) : 0;
+      document.getElementById('rpt-avg').textContent = avg + '%';
+
+      const atRisk = currentReportData.rows.filter(r => r.overallPct < 75).length;
+      document.getElementById('rpt-atrisk').textContent = atRisk;
+
+      document.getElementById('export-btn').disabled = currentReportData.rows.length === 0;
+      UI.showToast('Report generated successfully', 'success');
+    }
+
+    function exportReport() {
+      if (!currentReportData) return;
+      const today = new Date().toISOString().split('T')[0];
+      Reports.exportCSV(currentReportData, `attendance_report_${today}.csv`);
+      UI.showToast('CSV exported successfully!', 'success');
+    }
+
+    // ── Logout ────────────────────────────────
+    function handleLogout() {
+      clearInterval(rosterInterval);
+      clearInterval(qrTimerInterval);
+      if (activeSession) SAP.expireSession(activeSession.id);
+      SAP.logout();
+      window.location.href = 'index.html';
+    }
+
+    // ── Boot ─────────────────────────────────
+    init();
+  </script>
+</body>
+</html>

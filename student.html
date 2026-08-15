@@ -1,0 +1,564 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AttendPro — Student Dashboard</title>
+  <meta name="description" content="Student attendance dashboard — view your attendance, scan QR codes, and track your subject-wise records.">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/student.css">
+</head>
+<body>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="student-layout">
+    <!-- Navbar -->
+    <nav class="student-nav">
+      <div class="nav-brand">
+        <div class="nav-brand-icon">🎓</div>
+        <span class="gradient-text">AttendPro</span>
+      </div>
+      <div class="nav-right">
+        <div class="nav-user" id="nav-user-info">
+          <div id="nav-avatar"></div>
+          <div>
+            <div class="nav-user-name" id="nav-user-name">—</div>
+            <div class="nav-user-role">Student</div>
+          </div>
+        </div>
+        <button class="btn btn-ghost btn-sm" onclick="handleLogout()" id="logout-btn">Sign Out</button>
+      </div>
+    </nav>
+
+    <main class="student-main">
+
+      <!-- Welcome Hero -->
+      <div class="welcome-hero">
+        <div class="welcome-text">
+          <h1 id="welcome-heading">Welcome back! 👋</h1>
+          <p id="welcome-subtext">Here's your attendance overview for today</p>
+          <div class="welcome-meta">
+            <div class="meta-chip" id="meta-roll">🎒 Roll: —</div>
+            <div class="meta-chip" id="meta-date">📅 —</div>
+            <div class="meta-chip" id="meta-subjects">📚 — Subjects</div>
+          </div>
+        </div>
+        <div id="hero-ring" style="flex-shrink:0"></div>
+      </div>
+
+      <!-- Active Sessions -->
+      <div id="sessions-section">
+        <div class="section-header">
+          <div>
+            <h2 class="section-title">🟢 Live Sessions</h2>
+            <p class="section-subtitle">Active classes you can mark attendance for right now</p>
+          </div>
+          <button class="btn btn-ghost btn-sm" onclick="loadSessions()">↻ Refresh</button>
+        </div>
+        <div class="sessions-grid" id="sessions-grid">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Divider -->
+      <div class="divider"></div>
+
+      <!-- Attendance Overview -->
+      <div class="section-header">
+        <div>
+          <h2 class="section-title">📊 My Attendance</h2>
+          <p class="section-subtitle">Subject-wise attendance breakdown</p>
+        </div>
+      </div>
+      <div class="overview-grid">
+        <div class="overall-ring-card">
+          <div id="overall-ring"></div>
+          <div style="text-align:center">
+            <div style="font-size:var(--text-sm);font-weight:600;color:var(--text-secondary)" id="overall-sessions-label">— of — sessions</div>
+            <div style="font-size:var(--text-xs);color:var(--text-muted);margin-top:4px">Overall Attendance</div>
+          </div>
+          <div id="overall-status-badge"></div>
+        </div>
+        <div class="subject-list" id="subject-list">
+          <!-- Populated by JS -->
+        </div>
+      </div>
+
+      <!-- Attendance Calendar -->
+      <div class="section-header" style="margin-top: var(--space-2xl)">
+        <div>
+          <h2 class="section-title">📆 Attendance Calendar</h2>
+          <p class="section-subtitle">Visual view of your attendance history</p>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <button class="btn btn-ghost btn-sm" onclick="prevMonth()">← Prev</button>
+          <button class="btn btn-ghost btn-sm" onclick="nextMonth()">Next →</button>
+        </div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);padding:var(--space-lg)">
+        <div id="calendar-container">
+          <!-- Calendar populated by JS -->
+        </div>
+      </div>
+
+      <!-- Recent Activity -->
+      <div class="section-header" style="margin-top: var(--space-2xl)">
+        <div>
+          <h2 class="section-title">🕐 Recent Activity</h2>
+          <p class="section-subtitle">Your last 10 attendance records</p>
+        </div>
+      </div>
+      <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);overflow:hidden">
+        <div id="recent-activity-table"></div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ── QR Scanner Modal ── -->
+  <div class="modal-overlay" id="scanner-modal">
+    <div class="modal" style="max-width:400px">
+      <div class="modal-header">
+        <h3 class="modal-title" id="scanner-modal-title">📷 Scan QR Code</h3>
+        <button class="modal-close" onclick="closeScanner()">✕</button>
+      </div>
+
+      <div class="scanner-modal-body">
+        <div class="scanner-status" id="scanner-status">
+          <div class="spinner" style="width:16px;height:16px;border-width:2px"></div>
+          <span>Initializing camera...</span>
+        </div>
+
+        <div class="video-wrapper" id="video-wrapper">
+          <video id="scanner-video" autoplay muted playsinline></video>
+          <canvas id="scanner-canvas"></canvas>
+          <div class="scanner-overlay">
+            <div class="scan-frame">
+              <div class="scan-corner-tr"></div>
+              <div class="scan-corner-bl"></div>
+              <div class="scan-line"></div>
+            </div>
+          </div>
+        </div>
+
+        <p style="font-size:var(--text-xs);color:var(--text-muted);text-align:center">
+          Point your camera at the QR code displayed by your faculty
+        </p>
+
+        <!-- Fallback: Manual token entry -->
+        <div style="width:100%;border-top:1px solid var(--border-subtle);padding-top:var(--space-md)">
+          <p style="font-size:var(--text-xs);color:var(--text-muted);text-align:center;margin-bottom:var(--space-sm)">
+            No camera? Enter session token manually
+          </p>
+          <div style="display:flex;gap:8px">
+            <input class="input-field" type="text" id="manual-token" placeholder="Paste session token..." style="flex:1;font-size:12px">
+            <button class="btn btn-primary btn-sm" onclick="submitManualToken()">Mark</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── GPS Check Modal ── -->
+  <div class="modal-overlay" id="gps-modal">
+    <div class="modal" style="max-width:360px;text-align:center">
+      <div style="font-size:48px;margin-bottom:var(--space-md)">📍</div>
+      <h3 style="margin-bottom:8px">Verifying Location</h3>
+      <p style="font-size:14px;margin-bottom:var(--space-xl)">Checking that you're within campus bounds...</p>
+      <div style="display:flex;justify-content:center"><div class="spinner"></div></div>
+    </div>
+  </div>
+
+  <!-- ── Success Modal ── -->
+  <div class="modal-overlay" id="success-modal">
+    <div class="modal" style="max-width:360px;text-align:center">
+      <div style="font-size:64px;margin-bottom:var(--space-md);animation:bounce 0.5s ease">✅</div>
+      <h3 style="font-size:var(--text-xl);margin-bottom:8px">Attendance Marked!</h3>
+      <p style="font-size:var(--text-sm);margin-bottom:var(--space-xs)" id="success-subject">—</p>
+      <p style="font-size:var(--text-xs);color:var(--text-muted)" id="success-time">—</p>
+      <div style="margin-top:var(--space-xl)">
+        <button class="btn btn-primary" onclick="UI.closeModal('success-modal');loadPage()">Done</button>
+      </div>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/ui.js"></script>
+  <script src="js/qr-scanner.js"></script>
+
+  <!-- jsQR from CDN -->
+  <script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+
+  <script>
+    let currentUser = null;
+    let activeScanningSession = null;
+    let sessionTimers = [];
+
+    // ── Init ─────────────────────────────────
+    function init() {
+      SAP.seed();
+      currentUser = UI.requireAuth('student');
+      if (!currentUser) return;
+      loadPage();
+    }
+
+    function loadPage() {
+      renderNavbar();
+      renderWelcome();
+      loadSessions();
+      renderAttendance();
+      renderCalendar();
+      renderRecentActivity();
+    }
+
+    // ── Navbar ───────────────────────────────
+    function renderNavbar() {
+      document.getElementById('nav-user-name').textContent = currentUser.name;
+      document.getElementById('nav-avatar').outerHTML = `<div id="nav-avatar">${UI.avatarEl(currentUser.name, 36)}</div>`;
+    }
+
+    // ── Welcome ──────────────────────────────
+    function renderWelcome() {
+      const firstName = currentUser.name.split(' ')[0];
+      const hour = new Date().getHours();
+      const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
+      document.getElementById('welcome-heading').textContent = `${greeting}, ${firstName}! 👋`;
+      document.getElementById('meta-roll').textContent = `🎒 Roll: ${currentUser.rollNo || 'N/A'}`;
+      document.getElementById('meta-date').textContent = `📅 ${new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long' })}`;
+
+      const subjects = SAP.getSubjectsByStudent(currentUser.id);
+      document.getElementById('meta-subjects').textContent = `📚 ${subjects.length} Subjects`;
+
+      // Overall ring
+      const stats = SAP.getStudentAttendanceStats(currentUser.id);
+      const totalAttended = stats.reduce((a,b) => a + b.attended, 0);
+      const totalSessions = stats.reduce((a,b) => a + b.total,    0);
+      const overallPct = totalSessions > 0 ? Math.round((totalAttended / totalSessions) * 100) : 0;
+
+      document.getElementById('hero-ring').innerHTML = UI.renderRing(overallPct, 140, 12);
+      document.getElementById('overall-ring').innerHTML = UI.renderRing(overallPct, 160, 14);
+      document.getElementById('overall-sessions-label').textContent = `${totalAttended} of ${totalSessions} sessions`;
+      document.getElementById('overall-status-badge').innerHTML = UI.attendanceBadge(overallPct);
+    }
+
+    // ── Live Sessions ────────────────────────
+    function loadSessions() {
+      // Clear existing timers
+      sessionTimers.forEach(clearInterval);
+      sessionTimers = [];
+
+      const sessions = SAP.getActiveSessionsForStudent(currentUser.id);
+      const grid = document.getElementById('sessions-grid');
+
+      if (!sessions.length) {
+        grid.innerHTML = `
+          <div class="empty-state" style="grid-column:1/-1">
+            <div class="empty-icon">📭</div>
+            <div class="empty-title">No active sessions right now</div>
+            <div class="empty-desc">Your faculty will start a session when class begins. Pull to refresh.</div>
+          </div>`;
+        return;
+      }
+
+      grid.innerHTML = sessions.map(sess => {
+        const sub = SAP.getSubjectById(sess.subjectId);
+        const alreadyMarked = SAP.hasStudentMarkedSession(currentUser.id, sess.id);
+        return `
+          <div class="session-card ${alreadyMarked ? 'already-marked' : ''}" id="sess-card-${sess.id}">
+            <div class="session-live-dot">
+              <div class="live-pulse"></div>
+              ${alreadyMarked ? '✅ MARKED' : '● LIVE'}
+            </div>
+            <div class="session-subject-name">${sub?.name || 'Unknown Subject'}</div>
+            <div class="session-subject-code">${sub?.code || ''} · ${sess.topic || 'Lecture'}</div>
+            <div class="session-meta">
+              <span class="session-time">Started ${sess.startTime}</span>
+              <span class="session-timer" id="timer-${sess.id}">${UI.countdown(sess.expiresAt)}</span>
+            </div>
+            ${alreadyMarked
+              ? `<button class="btn btn-ghost btn-sm w-full" disabled>✓ Already Marked</button>`
+              : `<button class="btn btn-primary w-full" onclick="openScanner('${sess.id}')">
+                   📷 Scan to Mark Attendance
+                 </button>`
+            }
+          </div>`;
+      }).join('');
+
+      // Start countdown timers
+      sessions.forEach(sess => {
+        const timerEl = document.getElementById(`timer-${sess.id}`);
+        if (!timerEl) return;
+        const interval = setInterval(() => {
+          const remaining = sess.expiresAt - Date.now();
+          if (remaining <= 0) {
+            clearInterval(interval);
+            timerEl.textContent = 'Expired';
+            timerEl.style.color = 'var(--danger)';
+            const card = document.getElementById(`sess-card-${sess.id}`);
+            if (card) card.style.opacity = '0.5';
+          } else {
+            timerEl.textContent = UI.countdown(sess.expiresAt);
+          }
+        }, 1000);
+        sessionTimers.push(interval);
+      });
+    }
+
+    // ── Attendance Table ──────────────────────
+    function renderAttendance() {
+      const stats = SAP.getStudentAttendanceStats(currentUser.id);
+      const list = document.getElementById('subject-list');
+
+      if (!stats.length) {
+        list.innerHTML = `<div class="empty-state"><div class="empty-icon">📚</div><div class="empty-title">No subjects enrolled</div></div>`;
+        return;
+      }
+
+      list.innerHTML = stats.map((s, i) => {
+        const color = s.percentage >= 75 ? 'var(--success)' : s.percentage >= 60 ? 'var(--warning)' : 'var(--danger)';
+        const fillClass = s.percentage >= 75 ? '' : s.percentage >= 60 ? 'warning' : 'danger';
+        return `
+          <div class="subject-row" style="animation-delay:${i*80}ms">
+            <div class="subject-info">
+              <div class="subject-name-text">${s.subject.name}</div>
+              <div class="subject-code-text">${s.subject.code}</div>
+            </div>
+            <div class="subject-pct-bar">
+              <div class="pct-label">
+                <span style="color:var(--text-muted)">${s.attended}/${s.total} classes</span>
+                <span style="color:${color};font-weight:700">${s.percentage}%</span>
+              </div>
+              <div class="progress-bar">
+                <div class="progress-fill ${fillClass}" style="width:${s.percentage}%"></div>
+              </div>
+            </div>
+            <div style="flex-shrink:0">${UI.attendanceBadge(s.percentage)}</div>
+          </div>`;
+      }).join('');
+    }
+
+    // ── Recent Activity ───────────────────────
+    function renderRecentActivity() {
+      const allAttendance = SAP.getAttendanceByStudent(currentUser.id)
+        .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp))
+        .slice(0, 10);
+
+      const container = document.getElementById('recent-activity-table');
+
+      if (!allAttendance.length) {
+        container.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No attendance records yet</div></div>`;
+        return;
+      }
+
+      const rows = allAttendance.map(rec => {
+        const sub = SAP.getSubjectById(rec.subjectId);
+        const sess = SAP.getSessionById(rec.sessionId);
+        return `
+          <tr>
+            <td class="bold">${sub?.name || '—'}</td>
+            <td>${sub?.code || '—'}</td>
+            <td>${sess?.topic || 'Lecture'}</td>
+            <td>${UI.formatDate(rec.timestamp)}</td>
+            <td>${new Date(rec.timestamp).toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit'})}</td>
+            <td><span class="badge badge-success">✓ Present</span></td>
+          </tr>`;
+      }).join('');
+
+      container.innerHTML = `
+        <div class="table-wrapper">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Subject</th>
+                <th>Code</th>
+                <th>Topic</th>
+                <th>Date</th>
+                <th>Time</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>${rows}</tbody>
+          </table>
+        </div>`;
+    }
+
+    // ── Scanner ───────────────────────────────
+    function openScanner(sessionId) {
+      activeScanningSession = sessionId;
+      document.getElementById('scanner-modal-title').textContent = '📷 Scan QR Code';
+      document.getElementById('scanner-status').innerHTML = `
+        <div class="spinner" style="width:16px;height:16px;border-width:2px"></div>
+        <span>Initializing camera...</span>`;
+      document.getElementById('manual-token').value = '';
+      UI.openModal('scanner-modal');
+
+      Scanner.startScanner('scanner-video', 'scanner-canvas', handleQRScanned).then(() => {
+        document.getElementById('scanner-status').innerHTML = `
+          <span style="color:var(--secondary)">●</span>
+          <span>Camera active — point at QR code</span>`;
+      }).catch(err => {
+        document.getElementById('scanner-status').innerHTML = `
+          <span style="color:var(--warning)">⚠</span>
+          <span>Camera unavailable — use manual entry below</span>`;
+        console.warn('Camera error:', err);
+      });
+    }
+
+    function closeScanner() {
+      Scanner.stopScanner();
+      UI.closeModal('scanner-modal');
+    }
+
+    async function handleQRScanned(token) {
+      closeScanner();
+      await processAttendanceToken(token);
+    }
+
+    async function submitManualToken() {
+      const token = document.getElementById('manual-token').value.trim();
+      if (!token) { UI.showToast('Please enter a session token', 'warning'); return; }
+      closeScanner();
+      await processAttendanceToken(token);
+    }
+
+    async function processAttendanceToken(token) {
+      // Show GPS check
+      UI.openModal('gps-modal');
+      await new Promise(r => setTimeout(r, 1200));
+
+      const loc = await Scanner.getLocation();
+      const gpsValid = Scanner.isWithinCampus(loc.lat, loc.lng);
+      UI.closeModal('gps-modal');
+
+      // Find session
+      const session = SAP.getSessionByToken(token);
+      if (!session) {
+        UI.showToast('Invalid QR code. Please try again.', 'error');
+        return;
+      }
+      if (session.status !== 'active' || session.expiresAt < Date.now()) {
+        UI.showToast('This session has expired. Contact your faculty.', 'error');
+        return;
+      }
+      if (SAP.hasStudentMarkedSession(currentUser.id, session.id)) {
+        UI.showToast('You already marked attendance for this session.', 'warning');
+        return;
+      }
+
+      // Mark attendance
+      SAP.markAttendance(session.id, currentUser.id, session.subjectId, gpsValid);
+
+      const sub = SAP.getSubjectById(session.subjectId);
+      document.getElementById('success-subject').textContent = sub?.name || 'Subject';
+      document.getElementById('success-time').textContent = `Marked at ${new Date().toLocaleTimeString('en-IN')}${loc.simulated ? ' · GPS simulated' : ' · GPS verified ✓'}`;
+
+      UI.openModal('success-modal');
+    }
+
+    // ── Calendar ─────────────────────────────
+    let currentCalendarMonth = new Date();
+
+    function renderCalendar() {
+      const allAttendance = SAP.getAttendanceByStudent(currentUser.id);
+      const attendanceDates = new Set(
+        allAttendance.map(a => new Date(a.timestamp).toISOString().split('T')[0])
+      );
+
+      const year = currentCalendarMonth.getFullYear();
+      const month = currentCalendarMonth.getMonth();
+      const today = new Date().toISOString().split('T')[0];
+
+      // Month header
+      const monthName = currentCalendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+      const container = document.getElementById('calendar-container');
+
+      // Get first day of month and number of days
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+      let html = `
+        <div class="calendar-wrapper">
+          <div class="calendar-month-header">${monthName}</div>
+          <div class="calendar-weekdays">
+            <div class="calendar-weekday">Sun</div>
+            <div class="calendar-weekday">Mon</div>
+            <div class="calendar-weekday">Tue</div>
+            <div class="calendar-weekday">Wed</div>
+            <div class="calendar-weekday">Thu</div>
+            <div class="calendar-weekday">Fri</div>
+            <div class="calendar-weekday">Sat</div>
+          </div>
+          <div class="calendar-grid">`;
+
+      // Previous month's days
+      for (let i = firstDay - 1; i >= 0; i--) {
+        const day = daysInPrevMonth - i;
+        html += `<div class="calendar-day other-month">${day}</div>`;
+      }
+
+      // Current month's days
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        const hasAttendance = attendanceDates.has(dateStr);
+        const isToday = dateStr === today;
+
+        let classes = 'calendar-day';
+        if (hasAttendance) classes += ' has-attendance';
+        if (isToday) classes += ' today';
+
+        html += `<div class="${classes}" title="${dateStr}">${day}</div>`;
+      }
+
+      // Next month's days
+      const totalCells = firstDay + daysInMonth;
+      const remainingCells = 42 - totalCells;
+      for (let day = 1; day <= remainingCells; day++) {
+        html += `<div class="calendar-day other-month">${day}</div>`;
+      }
+
+      html += `
+          </div>
+          <div class="calendar-legend">
+            <div class="calendar-legend-item">
+              <div class="calendar-legend-box attended"></div>
+              <span>Attendance Marked</span>
+            </div>
+            <div class="calendar-legend-item">
+              <div class="calendar-legend-box today"></div>
+              <span>Today</span>
+            </div>
+          </div>
+        </div>`;
+
+      container.innerHTML = html;
+    }
+
+    function prevMonth() {
+      currentCalendarMonth.setMonth(currentCalendarMonth.getMonth() - 1);
+      renderCalendar();
+    }
+
+    function nextMonth() {
+      currentCalendarMonth.setMonth(currentCalendarMonth.getMonth() + 1);
+      renderCalendar();
+    }
+
+    // ── Logout ────────────────────────────────
+    function handleLogout() {
+      Scanner.stopScanner();
+      SAP.logout();
+      window.location.href = 'index.html';
+    }
+
+    // ── Boot ─────────────────────────────────
+    init();
+  </script>
+</body>
+</html>
