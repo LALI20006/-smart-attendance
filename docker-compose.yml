@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  attendance-db:
+    image: postgres:16-alpine
+    container_name: attendance_postgres
+    restart: always
+    environment:
+      POSTGRES_USER: attendance_admin
+      POSTGRES_PASSWORD: secure_cloud_db_password_2026
+      POSTGRES_DB: attendance
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U attendance_admin -d attendance"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  attendance-web:
+    build: .
+    container_name: attendance_web_app
+    restart: always
+    ports:
+      - "5000:5000"
+    environment:
+      - NODE_ENV=production
+      - PORT=5000
+      - DATABASE_URL=postgresql://attendance_admin:secure_cloud_db_password_2026@attendance-db:5432/attendance
+      - JWT_SECRET=smart_attendance_prod_secret_token_key_99
+      - CORS_ORIGIN=*
+    depends_on:
+      attendance-db:
+        condition: service_healthy
+
+volumes:
+  postgres_data:

@@ -1,0 +1,47 @@
+{
+  "version": 2,
+  "builds": [
+    {
+      "src": "server.js",
+      "use": "@vercel/node"
+    }
+  ],
+  "routes": [
+    {
+      "src": "/api/(.*)",
+      "dest": "server.js"
+    },
+    {
+      "src": "/student",
+      "dest": "student.html"
+    },
+    {
+      "src": "/faculty",
+      "dest": "faculty.html"
+    },
+    {
+      "src": "/admin",
+      "dest": "admin.html"
+    },
+    {
+      "src": "/logs",
+      "dest": "logs.html"
+    },
+    {
+      "src": "/reset-password",
+      "dest": "reset-password.html"
+    },
+    {
+      "src": "/css/(.*)",
+      "dest": "/css/$1"
+    },
+    {
+      "src": "/js/(.*)",
+      "dest": "/js/$1"
+    },
+    {
+      "src": "/(.*)",
+      "dest": "/$1"
+    }
+  ]
+}

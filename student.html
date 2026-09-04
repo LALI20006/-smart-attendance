@@ -86,6 +86,78 @@
         <div class="subject-list" id="subject-list">
           <!-- Populated by JS -->
         </div>
+
+        <!-- Schedule Calendar Widget -->
+        <div class="schedule-calendar-card">
+          <div class="schedule-header">
+            <span class="schedule-icon">📅</span> Schedule Calendar
+          </div>
+          <div class="schedule-month-nav">
+            <button class="nav-arrow">&laquo;</button>
+            <div class="current-month">August 2026</div>
+            <button class="nav-arrow">&raquo;</button>
+          </div>
+          <div class="schedule-grid">
+            <div class="day-name">Su</div>
+            <div class="day-name">Mo</div>
+            <div class="day-name">Tu</div>
+            <div class="day-name">We</div>
+            <div class="day-name">Th</div>
+            <div class="day-name">Fr</div>
+            <div class="day-name">Sa</div>
+            
+            <div class="schedule-date other-month">26</div>
+            <div class="schedule-date other-month">27</div>
+            <div class="schedule-date other-month">28</div>
+            <div class="schedule-date other-month">29</div>
+            <div class="schedule-date other-month">30</div>
+            <div class="schedule-date other-month">31</div>
+            <div class="schedule-date">1</div>
+            
+            <div class="schedule-date">2</div>
+            <div class="schedule-date">3</div>
+            <div class="schedule-date">4</div>
+            <div class="schedule-date">5</div>
+            <div class="schedule-date">6</div>
+            <div class="schedule-date">7</div>
+            <div class="schedule-date">8</div>
+            
+            <div class="schedule-date">9</div>
+            <div class="schedule-date">10</div>
+            <div class="schedule-date">11</div>
+            <div class="schedule-date">12</div>
+            <div class="schedule-date">13</div>
+            <div class="schedule-date">14</div>
+            <div class="schedule-date">15</div>
+            
+            <div class="schedule-date">16</div>
+            <div class="schedule-date">17</div>
+            <div class="schedule-date">18</div>
+            <div class="schedule-date">19</div>
+            <div class="schedule-date">20</div>
+            <div class="schedule-date">21</div>
+            <div class="schedule-date">22</div>
+            
+            <div class="schedule-date">23</div>
+            <div class="schedule-date">24</div>
+            <div class="schedule-date active">25</div>
+            <div class="schedule-date">26</div>
+            <div class="schedule-date">27</div>
+            <div class="schedule-date">28</div>
+            <div class="schedule-date">29</div>
+            
+            <div class="schedule-date">30</div>
+            <div class="schedule-date">31</div>
+            <div class="schedule-date other-month">1</div>
+            <div class="schedule-date other-month">2</div>
+            <div class="schedule-date other-month">3</div>
+            <div class="schedule-date other-month">4</div>
+            <div class="schedule-date other-month">5</div>
+          </div>
+          <div class="schedule-indicator">
+            <div class="dot"></div>
+          </div>
+        </div>
       </div>
 
       <!-- Attendance Calendar -->
@@ -199,22 +271,30 @@
     let currentUser = null;
     let activeScanningSession = null;
     let sessionTimers = [];
+    let livePollInterval = null;
 
     // ── Init ─────────────────────────────────
-    function init() {
-      SAP.seed();
-      currentUser = UI.requireAuth('student');
-      if (!currentUser) return;
-      loadPage();
+    async function init() {
+      currentUser = SAP.getCurrentUser();
+      const token = SAP.getToken();
+      if (!currentUser || !token || currentUser.role !== 'student') {
+        SAP.logout();
+        window.location.href = 'index.html';
+        return;
+      }
+      renderNavbar();
+      await loadPage();
+
+      // Poll for active live sessions every 10 seconds
+      livePollInterval = setInterval(loadSessions, 10000);
     }
 
-    function loadPage() {
-      renderNavbar();
-      renderWelcome();
-      loadSessions();
-      renderAttendance();
+    async function loadPage() {
+      await renderWelcome();
+      await loadSessions();
+      await renderAttendance();
       renderCalendar();
-      renderRecentActivity();
+      await renderRecentActivity();
     }
 
     // ── Navbar ───────────────────────────────
@@ -224,168 +304,178 @@
     }
 
     // ── Welcome ──────────────────────────────
-    function renderWelcome() {
+    async function renderWelcome() {
       const firstName = currentUser.name.split(' ')[0];
       const hour = new Date().getHours();
       const greeting = hour < 12 ? 'Good morning' : hour < 17 ? 'Good afternoon' : 'Good evening';
       document.getElementById('welcome-heading').textContent = `${greeting}, ${firstName}! 👋`;
       document.getElementById('meta-roll').textContent = `🎒 Roll: ${currentUser.rollNo || 'N/A'}`;
-      document.getElementById('meta-date').textContent = `📅 ${new Date().toLocaleDateString('en-IN', { weekday:'long', day:'numeric', month:'long' })}`;
+      document.getElementById('meta-date').textContent = `📅 ${new Date().toLocaleDateString('en-US', { weekday:'long', day:'numeric', month:'long' })}`;
 
-      const subjects = SAP.getSubjectsByStudent(currentUser.id);
-      document.getElementById('meta-subjects').textContent = `📚 ${subjects.length} Subjects`;
+      try {
+        const data = await SAP.getStudentProfile();
+        const summary = data.summary || { totalSessions: 0, attendedSessions: 0, percentage: 0 };
+        const subjects = await SAP.getStudentSubjects();
+        document.getElementById('meta-subjects').textContent = `📚 ${subjects.length} Subjects`;
 
-      // Overall ring
-      const stats = SAP.getStudentAttendanceStats(currentUser.id);
-      const totalAttended = stats.reduce((a,b) => a + b.attended, 0);
-      const totalSessions = stats.reduce((a,b) => a + b.total,    0);
-      const overallPct = totalSessions > 0 ? Math.round((totalAttended / totalSessions) * 100) : 0;
-
-      document.getElementById('hero-ring').innerHTML = UI.renderRing(overallPct, 140, 12);
-      document.getElementById('overall-ring').innerHTML = UI.renderRing(overallPct, 160, 14);
-      document.getElementById('overall-sessions-label').textContent = `${totalAttended} of ${totalSessions} sessions`;
-      document.getElementById('overall-status-badge').innerHTML = UI.attendanceBadge(overallPct);
+        document.getElementById('hero-ring').innerHTML = UI.renderRing(summary.percentage, 140, 12);
+        document.getElementById('overall-ring').innerHTML = UI.renderRing(summary.percentage, 160, 14);
+        document.getElementById('overall-sessions-label').textContent = `${summary.attendedSessions} of ${summary.totalSessions} sessions`;
+        document.getElementById('overall-status-badge').innerHTML = UI.attendanceBadge(summary.percentage);
+      } catch (err) {
+        console.warn('Profile metrics load issue:', err);
+      }
     }
 
     // ── Live Sessions ────────────────────────
-    function loadSessions() {
-      // Clear existing timers
+    async function loadSessions() {
       sessionTimers.forEach(clearInterval);
       sessionTimers = [];
 
-      const sessions = SAP.getActiveSessionsForStudent(currentUser.id);
       const grid = document.getElementById('sessions-grid');
 
-      if (!sessions.length) {
-        grid.innerHTML = `
-          <div class="empty-state" style="grid-column:1/-1">
-            <div class="empty-icon">📭</div>
-            <div class="empty-title">No active sessions right now</div>
-            <div class="empty-desc">Your faculty will start a session when class begins. Pull to refresh.</div>
-          </div>`;
-        return;
-      }
+      try {
+        const sessions = await SAP.getActiveSessionsForStudent();
 
-      grid.innerHTML = sessions.map(sess => {
-        const sub = SAP.getSubjectById(sess.subjectId);
-        const alreadyMarked = SAP.hasStudentMarkedSession(currentUser.id, sess.id);
-        return `
-          <div class="session-card ${alreadyMarked ? 'already-marked' : ''}" id="sess-card-${sess.id}">
-            <div class="session-live-dot">
-              <div class="live-pulse"></div>
-              ${alreadyMarked ? '✅ MARKED' : '● LIVE'}
-            </div>
-            <div class="session-subject-name">${sub?.name || 'Unknown Subject'}</div>
-            <div class="session-subject-code">${sub?.code || ''} · ${sess.topic || 'Lecture'}</div>
-            <div class="session-meta">
-              <span class="session-time">Started ${sess.startTime}</span>
-              <span class="session-timer" id="timer-${sess.id}">${UI.countdown(sess.expiresAt)}</span>
-            </div>
-            ${alreadyMarked
-              ? `<button class="btn btn-ghost btn-sm w-full" disabled>✓ Already Marked</button>`
-              : `<button class="btn btn-primary w-full" onclick="openScanner('${sess.id}')">
-                   📷 Scan to Mark Attendance
-                 </button>`
+        if (!sessions || !sessions.length) {
+          grid.innerHTML = `
+            <div class="empty-state" style="grid-column:1/-1">
+              <div class="empty-icon">📭</div>
+              <div class="empty-title">No active sessions right now</div>
+              <div class="empty-desc">Your faculty will start a session when class begins. Auto-updates every 10s.</div>
+            </div>`;
+          return;
+        }
+
+        grid.innerHTML = sessions.map(sess => {
+          const alreadyMarked = sess.alreadyMarked;
+          const expiresAt = new Date(sess.end_time).getTime();
+          return `
+            <div class="session-card ${alreadyMarked ? 'already-marked' : ''}" id="sess-card-${sess.id}">
+              <div class="session-live-dot">
+                <div class="live-pulse"></div>
+                ${alreadyMarked ? '✅ MARKED' : '● LIVE'}
+              </div>
+              <div class="session-subject-name">${sess.subject_name || 'Class Session'}</div>
+              <div class="session-subject-code">${sess.subject_code || ''} · ${sess.topic || 'Lecture'}</div>
+              <div class="session-meta">
+                <span class="session-time">Code: <strong style="color:var(--primary-light)">${sess.session_code}</strong></span>
+                <span class="session-timer" id="timer-${sess.id}">${UI.countdown(expiresAt)}</span>
+              </div>
+              ${alreadyMarked
+                ? `<button class="btn btn-ghost btn-sm w-full" disabled>✓ Attendance Recorded</button>`
+                : `<button class="btn btn-primary w-full" onclick="openScanner('${sess.session_code}')">
+                     📷 Scan to Mark Attendance
+                   </button>`
+              }
+            </div>`;
+        }).join('');
+
+        // Start countdown timers
+        sessions.forEach(sess => {
+          const timerEl = document.getElementById(`timer-${sess.id}`);
+          if (!timerEl) return;
+          const expiresAt = new Date(sess.end_time).getTime();
+          const interval = setInterval(() => {
+            const remaining = expiresAt - Date.now();
+            if (remaining <= 0) {
+              clearInterval(interval);
+              timerEl.textContent = 'Expired';
+              timerEl.style.color = 'var(--danger)';
+              const card = document.getElementById(`sess-card-${sess.id}`);
+              if (card) card.style.opacity = '0.5';
+            } else {
+              timerEl.textContent = UI.countdown(expiresAt);
             }
-          </div>`;
-      }).join('');
-
-      // Start countdown timers
-      sessions.forEach(sess => {
-        const timerEl = document.getElementById(`timer-${sess.id}`);
-        if (!timerEl) return;
-        const interval = setInterval(() => {
-          const remaining = sess.expiresAt - Date.now();
-          if (remaining <= 0) {
-            clearInterval(interval);
-            timerEl.textContent = 'Expired';
-            timerEl.style.color = 'var(--danger)';
-            const card = document.getElementById(`sess-card-${sess.id}`);
-            if (card) card.style.opacity = '0.5';
-          } else {
-            timerEl.textContent = UI.countdown(sess.expiresAt);
-          }
-        }, 1000);
-        sessionTimers.push(interval);
-      });
+          }, 1000);
+          sessionTimers.push(interval);
+        });
+      } catch (err) {
+        console.error('Failed to load active sessions:', err);
+      }
     }
 
     // ── Attendance Table ──────────────────────
-    function renderAttendance() {
-      const stats = SAP.getStudentAttendanceStats(currentUser.id);
+    async function renderAttendance() {
       const list = document.getElementById('subject-list');
+      try {
+        const subjects = await SAP.getStudentSubjects();
 
-      if (!stats.length) {
-        list.innerHTML = `<div class="empty-state"><div class="empty-icon">📚</div><div class="empty-title">No subjects enrolled</div></div>`;
-        return;
+        if (!subjects.length) {
+          list.innerHTML = `<div class="empty-state"><div class="empty-icon">📚</div><div class="empty-title">No subjects enrolled</div></div>`;
+          return;
+        }
+
+        list.innerHTML = subjects.map((s, i) => {
+          const att = s.attendance || { percentage: 0, attended: 0, total: 0 };
+          const color = att.percentage >= 75 ? 'var(--success)' : att.percentage >= 60 ? 'var(--warning)' : 'var(--danger)';
+          const fillClass = att.percentage >= 75 ? '' : att.percentage >= 60 ? 'warning' : 'danger';
+          return `
+            <div class="subject-row" style="animation-delay:${i*80}ms">
+              <div class="subject-info">
+                <div class="subject-name-text">${s.name}</div>
+                <div class="subject-code-text">${s.code} · ${s.facultyName}</div>
+              </div>
+              <div class="subject-pct-bar">
+                <div class="pct-label">
+                  <span style="color:var(--text-muted)">${att.attended}/${att.total} classes</span>
+                  <span style="color:${color};font-weight:700">${att.percentage}%</span>
+                </div>
+                <div class="progress-bar">
+                  <div class="progress-fill ${fillClass}" style="width:${att.percentage}%"></div>
+                </div>
+              </div>
+              <div style="flex-shrink:0">${UI.attendanceBadge(att.percentage)}</div>
+            </div>`;
+        }).join('');
+      } catch (err) {
+        console.error('Failed to render attendance subjects:', err);
       }
-
-      list.innerHTML = stats.map((s, i) => {
-        const color = s.percentage >= 75 ? 'var(--success)' : s.percentage >= 60 ? 'var(--warning)' : 'var(--danger)';
-        const fillClass = s.percentage >= 75 ? '' : s.percentage >= 60 ? 'warning' : 'danger';
-        return `
-          <div class="subject-row" style="animation-delay:${i*80}ms">
-            <div class="subject-info">
-              <div class="subject-name-text">${s.subject.name}</div>
-              <div class="subject-code-text">${s.subject.code}</div>
-            </div>
-            <div class="subject-pct-bar">
-              <div class="pct-label">
-                <span style="color:var(--text-muted)">${s.attended}/${s.total} classes</span>
-                <span style="color:${color};font-weight:700">${s.percentage}%</span>
-              </div>
-              <div class="progress-bar">
-                <div class="progress-fill ${fillClass}" style="width:${s.percentage}%"></div>
-              </div>
-            </div>
-            <div style="flex-shrink:0">${UI.attendanceBadge(s.percentage)}</div>
-          </div>`;
-      }).join('');
     }
 
     // ── Recent Activity ───────────────────────
-    function renderRecentActivity() {
-      const allAttendance = SAP.getAttendanceByStudent(currentUser.id)
-        .sort((a,b) => new Date(b.timestamp) - new Date(a.timestamp))
-        .slice(0, 10);
-
+    async function renderRecentActivity() {
       const container = document.getElementById('recent-activity-table');
+      try {
+        const history = await SAP.getStudentAttendance();
 
-      if (!allAttendance.length) {
-        container.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No attendance records yet</div></div>`;
-        return;
+        if (!history.length) {
+          container.innerHTML = `<div class="empty-state"><div class="empty-icon">📋</div><div class="empty-title">No attendance records yet</div></div>`;
+          return;
+        }
+
+        const rows = history.map(rec => {
+          const isPresent = rec.status === 'present';
+          return `
+            <tr>
+              <td class="bold">${rec.subject_name || '—'}</td>
+              <td>${rec.subject_code || '—'}</td>
+              <td>${rec.topic || 'Lecture'}</td>
+              <td>${rec.date}</td>
+              <td>${rec.time}</td>
+              <td><span class="badge ${isPresent ? 'badge-success' : 'badge-danger'}">${isPresent ? '✓ Present' : '✗ Absent'}</span></td>
+            </tr>`;
+        }).join('');
+
+        container.innerHTML = `
+          <div class="table-wrapper">
+            <table class="data-table">
+              <thead>
+                <tr>
+                  <th>Subject</th>
+                  <th>Code</th>
+                  <th>Topic</th>
+                  <th>Date</th>
+                  <th>Time</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>${rows}</tbody>
+            </table>
+          </div>`;
+      } catch (err) {
+        console.error('Failed to render recent activity:', err);
       }
-
-      const rows = allAttendance.map(rec => {
-        const sub = SAP.getSubjectById(rec.subjectId);
-        const sess = SAP.getSessionById(rec.sessionId);
-        return `
-          <tr>
-            <td class="bold">${sub?.name || '—'}</td>
-            <td>${sub?.code || '—'}</td>
-            <td>${sess?.topic || 'Lecture'}</td>
-            <td>${UI.formatDate(rec.timestamp)}</td>
-            <td>${new Date(rec.timestamp).toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit'})}</td>
-            <td><span class="badge badge-success">✓ Present</span></td>
-          </tr>`;
-      }).join('');
-
-      container.innerHTML = `
-        <div class="table-wrapper">
-          <table class="data-table">
-            <thead>
-              <tr>
-                <th>Subject</th>
-                <th>Code</th>
-                <th>Topic</th>
-                <th>Date</th>
-                <th>Time</th>
-                <th>Status</th>
-              </tr>
-            </thead>
-            <tbody>${rows}</tbody>
-          </table>
-        </div>`;
     }
 
     // ── Scanner ───────────────────────────────
@@ -430,44 +520,37 @@
     async function processAttendanceToken(token) {
       // Show GPS check
       UI.openModal('gps-modal');
-      await new Promise(r => setTimeout(r, 1200));
+      await new Promise(r => setTimeout(r, 800));
 
       const loc = await Scanner.getLocation();
       const gpsValid = Scanner.isWithinCampus(loc.lat, loc.lng);
       UI.closeModal('gps-modal');
 
-      // Find session
-      const session = SAP.getSessionByToken(token);
-      if (!session) {
-        UI.showToast('Invalid QR code. Please try again.', 'error');
-        return;
+      try {
+        const res = await SAP.markAttendance(token, gpsValid);
+        document.getElementById('success-subject').textContent = res.subjectName || 'Course Session';
+        document.getElementById('success-time').textContent = `Marked at ${res.time || new Date().toLocaleTimeString('en-US')}${loc.simulated ? ' · GPS simulated' : ' · GPS verified ✓'}`;
+        UI.openModal('success-modal');
+        await loadPage();
+      } catch (err) {
+        UI.showToast(err.message || 'Failed to record attendance. Please check code or try again.', 'error');
       }
-      if (session.status !== 'active' || session.expiresAt < Date.now()) {
-        UI.showToast('This session has expired. Contact your faculty.', 'error');
-        return;
-      }
-      if (SAP.hasStudentMarkedSession(currentUser.id, session.id)) {
-        UI.showToast('You already marked attendance for this session.', 'warning');
-        return;
-      }
-
-      // Mark attendance
-      SAP.markAttendance(session.id, currentUser.id, session.subjectId, gpsValid);
-
-      const sub = SAP.getSubjectById(session.subjectId);
-      document.getElementById('success-subject').textContent = sub?.name || 'Subject';
-      document.getElementById('success-time').textContent = `Marked at ${new Date().toLocaleTimeString('en-IN')}${loc.simulated ? ' · GPS simulated' : ' · GPS verified ✓'}`;
-
-      UI.openModal('success-modal');
     }
 
     // ── Calendar ─────────────────────────────
     let currentCalendarMonth = new Date();
 
     function renderCalendar() {
-      const allAttendance = SAP.getAttendanceByStudent(currentUser.id);
+      const allAttendance = (typeof SAP !== 'undefined' && SAP.getAttendanceByStudent ? SAP.getAttendanceByStudent(currentUser?.id) : []) || [];
       const attendanceDates = new Set(
-        allAttendance.map(a => new Date(a.timestamp).toISOString().split('T')[0])
+        allAttendance.map(a => {
+          try {
+            const raw = a.timestamp || a.created_at || (a.date ? `${a.date}T${a.time || '12:00:00'}` : null);
+            return raw ? new Date(raw).toISOString().split('T')[0] : a.date;
+          } catch {
+            return a.date || null;
+          }
+        }).filter(Boolean)
       );
 
       const year = currentCalendarMonth.getFullYear();
@@ -551,10 +634,9 @@
     }
 
     // ── Logout ────────────────────────────────
-    function handleLogout() {
-      Scanner.stopScanner();
-      SAP.logout();
-      window.location.href = 'index.html';
+    async function handleLogout() {
+      if (typeof Scanner !== 'undefined' && Scanner.stopScanner) Scanner.stopScanner();
+      await SAP.logout();
     }
 
     // ── Boot ─────────────────────────────────

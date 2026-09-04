@@ -140,16 +140,21 @@
       </div>
 
       <!-- Role Selector -->
-      <div class="role-selector">
+      <div class="role-selector" style="display:grid;grid-template-columns:repeat(3,1fr);gap:10px;">
         <div class="role-card student selected" id="role-student" onclick="selectRole('student')">
           <span class="role-icon">🎒</span>
           <span class="role-name">Student</span>
-          <span class="role-desc">Mark your attendance</span>
+          <span class="role-desc">Mark attendance</span>
         </div>
         <div class="role-card faculty" id="role-faculty" onclick="selectRole('faculty')">
           <span class="role-icon">👨‍🏫</span>
           <span class="role-name">Faculty</span>
-          <span class="role-desc">Manage &amp; monitor</span>
+          <span class="role-desc">Manage sessions</span>
+        </div>
+        <div class="role-card admin" id="role-admin" onclick="selectRole('admin')">
+          <span class="role-icon">⚡</span>
+          <span class="role-name">Admin</span>
+          <span class="role-desc">Campus control</span>
         </div>
       </div>
 
@@ -357,13 +362,16 @@
   <script src="js/data.js"></script>
   <script src="js/ui.js"></script>
   <script>
-    // Backend-backed auth: do not rely on browser localStorage for accounts.
+    // Production Auth Client
     let selectedRole = 'student';
     let authMode = 'login';
 
-    const existing = JSON.parse(localStorage.getItem('sap_current_user') || localStorage.getItem('attendx_current_user') || 'null');
-    if (existing) {
-      window.location.href = existing.role === 'faculty' ? 'faculty.html' : 'student.html';
+    const existing = SAP.getCurrentUser();
+    const token = SAP.getToken();
+    if (existing && token) {
+      if (existing.role === 'admin') window.location.href = 'admin.html';
+      else if (existing.role === 'faculty') window.location.href = 'faculty.html';
+      else window.location.href = 'student.html';
     }
 
     function updateAuthMode(mode = authMode) {
@@ -377,29 +385,35 @@
       const toggleBtn = document.getElementById('toggle-auth-btn');
       const rollGroup = document.getElementById('signup-roll-group');
 
-      loginForm.classList.toggle('hidden', isSignup);
-      signupForm.classList.toggle('hidden', !isSignup);
+      if (loginForm) loginForm.classList.toggle('hidden', isSignup);
+      if (signupForm) signupForm.classList.toggle('hidden', !isSignup);
+      if (titleEl) {
+        titleEl.textContent = isSignup
+          ? (selectedRole === 'faculty' ? 'Faculty Sign Up' : 'Student Sign Up')
+          : (selectedRole === 'admin' ? 'Administrator Login' : selectedRole === 'faculty' ? 'Faculty Login' : 'Student Login');
+      }
 
-      titleEl.textContent = isSignup
-        ? (selectedRole === 'faculty' ? 'Faculty Sign Up' : 'Student Sign Up')
-        : (selectedRole === 'faculty' ? 'Faculty Login' : 'Student Login');
+      if (subtitleEl) {
+        subtitleEl.textContent = isSignup
+          ? (selectedRole === 'faculty' ? 'Create your faculty account' : 'Create your student account')
+          : (selectedRole === 'admin'
+            ? 'Campus-wide attendance administration'
+            : selectedRole === 'faculty'
+            ? 'Access your dashboard and manage sessions'
+            : 'Sign in to mark your attendance');
+      }
 
-      subtitleEl.textContent = isSignup
-        ? (selectedRole === 'faculty' ? 'Create your faculty account' : 'Create your student account')
-        : (selectedRole === 'faculty'
-          ? 'Access your dashboard and manage sessions'
-          : 'Sign in to mark your attendance');
-
-      toggleText.textContent = isSignup ? 'Already have an account?' : 'New here?';
-      toggleBtn.textContent = isSignup ? 'Sign in' : 'Create account';
-      rollGroup.classList.toggle('hidden', selectedRole !== 'student');
+      if (toggleText) toggleText.textContent = isSignup ? 'Already have an account?' : 'New here?';
+      if (toggleBtn) toggleBtn.textContent = isSignup ? 'Sign in' : 'Create account';
+      if (rollGroup) rollGroup.classList.toggle('hidden', selectedRole !== 'student');
     }
 
     // ── Role Selector ─────────────────────────
     function selectRole(role) {
       selectedRole = role;
       document.querySelectorAll('.role-card').forEach(c => c.classList.remove('selected'));
-      document.getElementById(`role-${role}`).classList.add('selected');
+      const card = document.getElementById(`role-${role}`);
+      if (card) card.classList.add('selected');
       updateAuthMode(authMode);
     }
 
@@ -428,19 +442,23 @@
 
       UI.setButtonLoading(btn, true);
 
-      SAP.login(email, password).then((user) => {
+      SAP.login(email, password, selectedRole).then((user) => {
         if (!user) {
           UI.setButtonLoading(btn, false);
+          errorEl.textContent = 'Invalid email or password. New user? Click "Create account" below.';
           errorEl.classList.add('visible');
           return;
         }
 
         UI.showToast(`Welcome, ${user.name.split(' ')[0]}! 👋`, 'success');
         setTimeout(() => {
-          window.location.href = user.role === 'faculty' ? 'faculty.html' : 'student.html';
-        }, 400);
-      }).catch(() => {
+          if (user.role === 'admin') window.location.href = 'admin.html';
+          else if (user.role === 'faculty') window.location.href = 'faculty.html';
+          else window.location.href = 'student.html';
+        }, 300);
+      }).catch((error) => {
         UI.setButtonLoading(btn, false);
+        errorEl.textContent = error?.message || 'Invalid email or password. New user? Click "Create account" below.';
         errorEl.classList.add('visible');
       });
     }
@@ -469,9 +487,8 @@
         return;
       }
 
-
-      if (!/(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z0-9]).{8,}/.test(password)) {
-        errorEl.textContent = 'Password must be at least 8 chars long and contain uppercase, lowercase, numbers, and special characters.';
+      if (password.length < 6) {
+        errorEl.textContent = 'Password must be at least 6 characters long.';
         errorEl.classList.add('visible');
         return;
       }
@@ -490,13 +507,6 @@
         email,
         password
       }).then((result) => {
-        if (result && result.error) {
-          errorEl.textContent = result.error;
-          errorEl.classList.add('visible');
-          UI.setButtonLoading(btn, false);
-          return;
-        }
-
         if (!result || !result.id) {
           errorEl.textContent = 'Unable to create your account. Please try again.';
           errorEl.classList.add('visible');
@@ -504,12 +514,12 @@
           return;
         }
 
-        UI.showToast(`Account created successfully! Please sign in to continue.`, 'success');
-        setTimeout(() => {
-          toggleAuthMode('login');
-          document.getElementById('email').value = email;
-          document.getElementById('password').focus();
-        }, 1000);
+        UI.showToast(`Account created! Signing you in...`, 'success');
+        return SAP.login(email, password, selectedRole).then((user) => {
+          if (user.role === 'admin') window.location.href = 'admin.html';
+          else if (user.role === 'faculty') window.location.href = 'faculty.html';
+          else window.location.href = 'student.html';
+        });
       }).catch((error) => {
         errorEl.textContent = error.message || 'Unable to create your account.';
         errorEl.classList.add('visible');

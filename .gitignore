@@ -3,3 +3,5 @@ attendance.db
 .DS_Store
 npm-debug.log*
 .env
+cloudflared.exe
+

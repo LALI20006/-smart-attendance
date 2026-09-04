@@ -1,0 +1,1098 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AttendPro — Administrator Control Center</title>
+  <meta name="description" content="Campus-wide attendance management, MySQL session telemetry, user activity, and analytics.">
+  <link rel="stylesheet" href="css/main.css">
+  <link rel="stylesheet" href="css/faculty.css">
+  <style>
+    .admin-badge {
+      background: linear-gradient(135deg, #f59e0b, #d97706);
+      color: #000;
+      font-weight: 800;
+      font-size: 10px;
+      padding: 3px 8px;
+      border-radius: 999px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+    .dept-card {
+      background: rgba(255,255,255,0.03);
+      border: 1px solid var(--border-default);
+      border-radius: 12px;
+      padding: 16px;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+    }
+    .dept-name { font-weight: 600; color: var(--text-primary); }
+    .dept-count { font-size: 18px; font-weight: 700; color: var(--primary-light); }
+
+    .badge-active-pulse {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: rgba(34, 197, 94, 0.12);
+      color: #4ade80;
+      border: 1px solid rgba(34, 197, 94, 0.3);
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-weight: 700;
+      font-size: 11px;
+      text-transform: uppercase;
+    }
+    .badge-active-pulse::before {
+      content: '';
+      display: inline-block;
+      width: 7px;
+      height: 7px;
+      border-radius: 50%;
+      background: #22c55e;
+      box-shadow: 0 0 8px #22c55e;
+      animation: pulseBeacon 1.5s infinite;
+    }
+    @keyframes pulseBeacon {
+      0% { transform: scale(0.9); opacity: 0.8; }
+      50% { transform: scale(1.3); opacity: 1; box-shadow: 0 0 12px #22c55e; }
+      100% { transform: scale(0.9); opacity: 0.8; }
+    }
+    .badge-logged-out {
+      background: rgba(148, 163, 184, 0.1);
+      color: #94a3b8;
+      border: 1px solid rgba(148, 163, 184, 0.2);
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 11px;
+    }
+    .badge-expired {
+      background: rgba(239, 68, 68, 0.1);
+      color: #f87171;
+      border: 1px solid rgba(239, 68, 68, 0.2);
+      padding: 3px 10px;
+      border-radius: 999px;
+      font-weight: 600;
+      font-size: 11px;
+    }
+    .badge-yes {
+      background: rgba(34, 197, 94, 0.15);
+      color: #4ade80;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 700;
+      font-size: 11px;
+    }
+    .badge-no {
+      background: rgba(148, 163, 184, 0.1);
+      color: #94a3b8;
+      padding: 2px 8px;
+      border-radius: 6px;
+      font-weight: 600;
+      font-size: 11px;
+    }
+    .filter-bar {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 12px;
+      align-items: center;
+      background: rgba(255,255,255,0.02);
+      border: 1px solid var(--border-default);
+      border-radius: 12px;
+      padding: 12px 16px;
+      margin-bottom: 16px;
+    }
+    .filter-select, .filter-input {
+      background: rgba(15, 23, 42, 0.7);
+      border: 1px solid var(--border-default);
+      color: var(--text-primary);
+      padding: 7px 12px;
+      border-radius: 8px;
+      font-size: 13px;
+      outline: none;
+    }
+    .filter-select:focus, .filter-input:focus {
+      border-color: var(--primary);
+    }
+    .activity-section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 24px 0 14px 0;
+    }
+    .activity-section-title {
+      font-size: 16px;
+      font-weight: 700;
+      letter-spacing: 0.5px;
+      color: var(--text-primary);
+      text-transform: uppercase;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .kpi-grid-5 {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+      gap: 16px;
+      margin-bottom: 24px;
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-orbs">
+    <div class="orb orb-1"></div>
+    <div class="orb orb-2"></div>
+    <div class="orb orb-3"></div>
+  </div>
+
+  <div class="faculty-layout">
+    <!-- ── Sidebar ── -->
+    <aside class="sidebar" id="sidebar">
+      <div class="sidebar-logo">
+        <div class="sidebar-logo-icon">⚡</div>
+        <span class="sidebar-logo-text">AttendPro <span class="admin-badge">MySQL</span></span>
+      </div>
+
+      <div class="sidebar-user">
+        <div id="sidebar-avatar"></div>
+        <div class="sidebar-user-info">
+          <div class="sidebar-user-name" id="sidebar-name">Admin User</div>
+          <div class="sidebar-user-role" style="color:var(--warning)">Super Administrator</div>
+        </div>
+      </div>
+
+      <nav class="sidebar-nav">
+        <div class="nav-section-label">User Activity &amp; Telemetry</div>
+        <button class="nav-item active" id="nav-overview" onclick="switchAdminTab('overview')">
+          <span class="nav-item-icon">📊</span> Campus Overview
+        </button>
+        <button class="nav-item" id="nav-activity" onclick="switchAdminTab('activity')">
+          <span class="nav-item-icon">⚡</span> User Activity &amp; Live
+        </button>
+        <button class="nav-item" id="nav-history" onclick="switchAdminTab('history')">
+          <span class="nav-item-icon">📜</span> Login History
+        </button>
+
+        <div class="nav-section-label" style="margin-top:16px">Directory Management</div>
+        <button class="nav-item" id="nav-students" onclick="switchAdminTab('students')">
+          <span class="nav-item-icon">👥</span> Student Directory
+        </button>
+        <button class="nav-item" id="nav-faculty" onclick="switchAdminTab('faculty')">
+          <span class="nav-item-icon">👨‍🏫</span> Faculty Members
+        </button>
+        <button class="nav-item" id="nav-subjects" onclick="switchAdminTab('subjects')">
+          <span class="nav-item-icon">📚</span> Courses &amp; Subjects
+        </button>
+
+        <div class="nav-section-label" style="margin-top:16px">Supervision &amp; Security</div>
+        <button class="nav-item" id="nav-attendance" onclick="switchAdminTab('attendance')">
+          <span class="nav-item-icon">📡</span> Live Attendance Log
+        </button>
+        <button class="nav-item" id="nav-atrisk" onclick="switchAdminTab('atrisk')">
+          <span class="nav-item-icon">⚠️</span> At-Risk Interventions
+          <span class="nav-item-badge" id="admin-atrisk-badge" style="display:none">0</span>
+        </button>
+      </nav>
+
+      <div class="sidebar-footer">
+        <button class="btn btn-ghost w-full btn-sm" onclick="handleLogout()">
+          🚪 Sign Out
+        </button>
+      </div>
+    </aside>
+
+    <!-- ── Main Content ── -->
+    <div class="faculty-main">
+      <div class="topbar">
+        <div>
+          <div class="topbar-title" id="topbar-title">Campus Overview</div>
+          <div class="topbar-subtitle" id="topbar-subtitle">Real-time MySQL session telemetry and activity metrics</div>
+        </div>
+        <div class="topbar-actions">
+          <button class="btn btn-ghost btn-sm" onclick="switchAdminTab('activity')">
+            ⚡ Live Active Users
+          </button>
+          <button class="btn btn-ghost btn-sm" onclick="switchAdminTab('history')">
+            📜 Session History
+          </button>
+          <button class="btn btn-primary btn-sm" onclick="openAddUserModal()">
+            ➕ Register User
+          </button>
+        </div>
+      </div>
+
+      <div class="page-content" id="page-content">
+
+        <!-- ═══════════════════════════════════
+             TAB: OVERVIEW
+        ════════════════════════════════════ -->
+        <div class="tab-panel active" id="tab-overview">
+
+          <!-- USER ACTIVITY SECTION (Requirement 8) -->
+          <div class="activity-section-header">
+            <span class="activity-section-title">⚡ USER ACTIVITY (Live from MySQL)</span>
+            <span style="font-size:12px;color:var(--text-muted)">Real-time database sync</span>
+          </div>
+
+          <div class="kpi-grid-5">
+            <div class="kpi-card primary">
+              <span class="kpi-icon">👥</span>
+              <div class="kpi-value" id="kpi-act-total-users">—</div>
+              <div class="kpi-label">Total Registered Users</div>
+            </div>
+            <div class="kpi-card info">
+              <span class="kpi-icon">🔑</span>
+              <div class="kpi-value" id="kpi-act-total-signins">—</div>
+              <div class="kpi-label">Total Sign-ins</div>
+            </div>
+            <div class="kpi-card success">
+              <span class="kpi-icon">🟢</span>
+              <div class="kpi-value" id="kpi-act-currently-active">—</div>
+              <div class="kpi-label">Currently Active</div>
+            </div>
+            <div class="kpi-card warning">
+              <span class="kpi-icon">🚪</span>
+              <div class="kpi-value" id="kpi-act-signed-out">—</div>
+              <div class="kpi-label">Signed Out</div>
+            </div>
+            <div class="kpi-card danger">
+              <span class="kpi-icon">⏳</span>
+              <div class="kpi-value" id="kpi-act-expired">—</div>
+              <div class="kpi-label">Expired Sessions</div>
+            </div>
+          </div>
+
+          <!-- CAMPUS TELEMETRY -->
+          <div class="activity-section-header">
+            <span class="activity-section-title">📊 ACADEMIC &amp; ATTENDANCE TELEMETRY</span>
+          </div>
+
+          <div class="kpi-grid">
+            <div class="kpi-card primary">
+              <span class="kpi-icon">🎓</span>
+              <div class="kpi-value" id="kpi-total-students">—</div>
+              <div class="kpi-label">Students</div>
+            </div>
+            <div class="kpi-card info">
+              <span class="kpi-icon">👨‍🏫</span>
+              <div class="kpi-value" id="kpi-total-faculty">—</div>
+              <div class="kpi-label">Faculty</div>
+            </div>
+            <div class="kpi-card success">
+              <span class="kpi-icon">📚</span>
+              <div class="kpi-value" id="kpi-total-subjects">—</div>
+              <div class="kpi-label">Subjects</div>
+            </div>
+            <div class="kpi-card warning">
+              <span class="kpi-icon">📈</span>
+              <div class="kpi-value" id="kpi-avg-attendance">—</div>
+              <div class="kpi-label">Average Attendance</div>
+            </div>
+          </div>
+
+          <div class="grid grid-2 gap-lg" style="margin-top:24px">
+            <div class="table-card">
+              <div class="table-card-header">
+                <h3 class="table-card-title">🟢 Currently Active Sessions</h3>
+                <button class="btn btn-ghost btn-sm" onclick="switchAdminTab('activity')">View All →</button>
+              </div>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Role</th>
+                      <th>Login Time</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="overview-active-tbody">
+                    <tr><td colspan="4" style="text-align:center;padding:20px">Loading active users...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+
+            <div class="table-card">
+              <div class="table-card-header">
+                <h3 class="table-card-title">🏆 Top User Sign-ins</h3>
+                <button class="btn btn-ghost btn-sm" onclick="switchAdminTab('history')">Audit Log →</button>
+              </div>
+              <div class="table-wrapper">
+                <table class="data-table">
+                  <thead>
+                    <tr>
+                      <th>User</th>
+                      <th>Role</th>
+                      <th>Total Sign-ins</th>
+                      <th>Status</th>
+                    </tr>
+                  </thead>
+                  <tbody id="overview-top-signins-tbody">
+                    <tr><td colspan="4" style="text-align:center;padding:20px">Loading statistics...</td></tr>
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════
+             TAB: USER ACTIVITY & LIVE SESSIONS
+        ════════════════════════════════════ -->
+        <div class="tab-panel" id="tab-activity">
+          <div class="activity-section-header">
+            <span class="activity-section-title">⚡ USER ACTIVITY METRICS</span>
+            <button class="btn btn-ghost btn-sm" onclick="loadUserActivity()">↻ Refresh</button>
+          </div>
+
+          <div class="kpi-grid-5">
+            <div class="kpi-card primary">
+              <span class="kpi-icon">👥</span>
+              <div class="kpi-value" id="act-total-users">—</div>
+              <div class="kpi-label">Total Registered Users</div>
+            </div>
+            <div class="kpi-card info">
+              <span class="kpi-icon">🔑</span>
+              <div class="kpi-value" id="act-total-signins">—</div>
+              <div class="kpi-label">Total Sign-ins</div>
+            </div>
+            <div class="kpi-card success">
+              <span class="kpi-icon">🟢</span>
+              <div class="kpi-value" id="act-currently-active">—</div>
+              <div class="kpi-label">Currently Active</div>
+            </div>
+            <div class="kpi-card warning">
+              <span class="kpi-icon">🚪</span>
+              <div class="kpi-value" id="act-signed-out">—</div>
+              <div class="kpi-label">Signed Out</div>
+            </div>
+            <div class="kpi-card danger">
+              <span class="kpi-icon">⏳</span>
+              <div class="kpi-value" id="act-expired">—</div>
+              <div class="kpi-label">Expired Sessions</div>
+            </div>
+          </div>
+
+          <!-- CURRENTLY ACTIVE USERS TABLE (Requirement 5) -->
+          <div class="table-card">
+            <div class="table-card-header">
+              <div>
+                <h3 class="table-card-title">🟢 Currently Active Users</h3>
+                <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">Live active sessions queried directly from MySQL <code>user_sessions</code></p>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="loadActiveUsers()">↻ Refresh Now</button>
+            </div>
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Role</th>
+                    <th>Login Time</th>
+                    <th>Last Activity</th>
+                    <th>Status</th>
+                    <th>Device</th>
+                    <th>Browser</th>
+                    <th>IP Address</th>
+                  </tr>
+                </thead>
+                <tbody id="active-users-tbody">
+                  <tr><td colspan="8" style="text-align:center;padding:24px">Loading active users from MySQL...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════
+             TAB: LOGIN HISTORY (Requirement 7)
+        ════════════════════════════════════ -->
+        <div class="tab-panel" id="tab-history">
+          <div class="table-card">
+            <div class="table-card-header">
+              <div>
+                <h3 class="table-card-title">📜 Complete Login &amp; Session History</h3>
+                <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">Permanent MySQL audit trail of every sign-in and sign-out event</p>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="loadLoginHistory()">↻ Refresh</button>
+            </div>
+
+            <!-- Filters Bar -->
+            <div class="filter-bar">
+              <input type="text" id="hist-filter-search" class="filter-input" placeholder="🔍 Search name or email..." oninput="debounceHistorySearch()">
+
+              <select id="hist-filter-status" class="filter-select" onchange="loadLoginHistory()">
+                <option value="ALL">Status: All</option>
+                <option value="ACTIVE">Status: Active</option>
+                <option value="LOGGED_OUT">Status: Logged Out</option>
+                <option value="EXPIRED">Status: Expired</option>
+              </select>
+
+              <select id="hist-filter-role" class="filter-select" onchange="loadLoginHistory()">
+                <option value="ALL">Role: All</option>
+                <option value="student">Role: Student</option>
+                <option value="faculty">Role: Faculty</option>
+                <option value="admin">Role: Admin</option>
+              </select>
+
+              <select id="hist-filter-time" class="filter-select" onchange="loadLoginHistory()">
+                <option value="all">Time: All Time</option>
+                <option value="today">Time: Today</option>
+                <option value="week">Time: This Week</option>
+                <option value="month">Time: This Month</option>
+              </select>
+
+              <button class="btn btn-ghost btn-sm" onclick="resetHistoryFilters()">Reset Filters</button>
+            </div>
+
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>User</th>
+                    <th>Role</th>
+                    <th>Login Time</th>
+                    <th>Logout Time</th>
+                    <th>Status</th>
+                    <th>Device</th>
+                    <th>Browser</th>
+                    <th>IP Address</th>
+                  </tr>
+                </thead>
+                <tbody id="login-history-tbody">
+                  <tr><td colspan="8" style="text-align:center;padding:24px">Loading login history from MySQL...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════
+             TAB: STUDENTS DIRECTORY
+        ════════════════════════════════════ -->
+        <div class="tab-panel" id="tab-students">
+          <div class="table-card">
+            <div class="table-card-header">
+              <div>
+                <h3 class="table-card-title">Students Directory</h3>
+                <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">Registered students with live MySQL session counts and timestamps</p>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="openAddUserModal('student')">➕ Add Student</button>
+            </div>
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email Address</th>
+                    <th>Role</th>
+                    <th>Active</th>
+                    <th>Total Sign-ins</th>
+                    <th>Last Login</th>
+                    <th>Last Logout</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-students-tbody">
+                  <tr><td colspan="7" style="text-align:center;padding:24px">Loading students from MySQL...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════
+             TAB: FACULTY MEMBERS
+        ════════════════════════════════════ -->
+        <div class="tab-panel" id="tab-faculty">
+          <div class="table-card">
+            <div class="table-card-header">
+              <div>
+                <h3 class="table-card-title">Faculty Members</h3>
+                <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">Professors and instructors with MySQL session tracking</p>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="openAddUserModal('faculty')">➕ Add Faculty</button>
+            </div>
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Name</th>
+                    <th>Email Address</th>
+                    <th>Role</th>
+                    <th>Active</th>
+                    <th>Total Sign-ins</th>
+                    <th>Last Login</th>
+                    <th>Last Logout</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-faculty-tbody">
+                  <tr><td colspan="7" style="text-align:center;padding:24px">Loading faculty from MySQL...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════
+             TAB: SUBJECTS
+        ════════════════════════════════════ -->
+        <div class="tab-panel" id="tab-subjects">
+          <div class="table-card">
+            <div class="table-card-header">
+              <div>
+                <h3 class="table-card-title">Curriculum Subjects</h3>
+                <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">Registered subjects and assigned faculty</p>
+              </div>
+              <button class="btn btn-primary btn-sm" onclick="openAddSubjectModal()">➕ Create Subject</button>
+            </div>
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Subject Code</th>
+                    <th>Subject Name</th>
+                    <th>Semester</th>
+                    <th>Created At</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-subjects-tbody">
+                  <tr><td colspan="4" style="text-align:center;padding:24px">Loading subjects...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════
+             TAB: ATTENDANCE LOG
+        ════════════════════════════════════ -->
+        <div class="tab-panel" id="tab-attendance">
+          <div class="table-card">
+            <div class="table-card-header">
+              <div>
+                <h3 class="table-card-title">Live Attendance Audit</h3>
+                <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">Real-time attendance logs submitted campus-wide</p>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="loadAttendanceLog()">↻ Refresh</button>
+            </div>
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Date</th>
+                    <th>Time</th>
+                    <th>Student</th>
+                    <th>Email</th>
+                    <th>Subject</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-attendance-tbody">
+                  <tr><td colspan="6" style="text-align:center;padding:24px">Loading audit log...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+        <!-- ═══════════════════════════════════
+             TAB: AT-RISK INTERVENTIONS
+        ════════════════════════════════════ -->
+        <div class="tab-panel" id="tab-atrisk">
+          <div class="table-card">
+            <div class="table-card-header">
+              <div>
+                <h3 class="table-card-title">⚠️ At-Risk Students (&lt; 75% Attendance)</h3>
+                <p style="font-size:var(--text-xs);color:var(--text-muted);margin-top:2px">Students requiring academic counseling</p>
+              </div>
+              <button class="btn btn-ghost btn-sm" onclick="loadAtRiskStudents()">↻ Re-evaluate</button>
+            </div>
+            <div class="table-wrapper">
+              <table class="data-table">
+                <thead>
+                  <tr>
+                    <th>Student Name</th>
+                    <th>Email</th>
+                    <th>Total Classes</th>
+                    <th>Attended</th>
+                    <th>Attendance Rate</th>
+                    <th>Status</th>
+                  </tr>
+                </thead>
+                <tbody id="admin-atrisk-tbody">
+                  <tr><td colspan="6" style="text-align:center;padding:24px">Analyzing attendance records...</td></tr>
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+
+      </div>
+    </div>
+  </div>
+
+  <!-- ── MODAL: Register User ── -->
+  <div class="modal-backdrop" id="modal-add-user" style="display:none">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h3 class="modal-title" id="modal-user-title">Register New User in MySQL</h3>
+        <button class="modal-close" onclick="closeAddUserModal()">✕</button>
+      </div>
+      <form id="form-add-user" onsubmit="submitAddUser(event)">
+        <div class="form-group">
+          <label class="input-label">Full Name</label>
+          <input class="input-field" type="text" id="add-user-name" required placeholder="e.g. Rahul Sharma">
+        </div>
+        <div class="form-group">
+          <label class="input-label">Email Address</label>
+          <input class="input-field" type="email" id="add-user-email" required placeholder="e.g. rahul@campus.edu">
+        </div>
+        <div class="form-group">
+          <label class="input-label">Password</label>
+          <input class="input-field" type="password" id="add-user-password" required placeholder="Min 6 characters" value="Password@123">
+        </div>
+        <div class="form-group">
+          <label class="input-label">Account Role</label>
+          <select class="input-field" id="add-user-role">
+            <option value="student">Student</option>
+            <option value="faculty">Faculty</option>
+            <option value="admin">Administrator</option>
+          </select>
+        </div>
+        <div style="display:flex;justify-content:flex-end;gap:12px;margin-top:20px">
+          <button type="button" class="btn btn-ghost btn-sm" onclick="closeAddUserModal()">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm" id="btn-submit-user">Create in MySQL</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div id="toast-container" class="toast-container"></div>
+
+  <script src="js/data.js"></script>
+  <script src="js/ui.js"></script>
+  <script>
+    let currentUser = null;
+    let historySearchTimer = null;
+
+    async function init() {
+      currentUser = SAP.getCurrentUser();
+      const token = SAP.getToken();
+
+      if (!currentUser || !token || currentUser.role !== 'admin') {
+        UI.showToast('Access denied: Administrator privileges required.', 'error');
+        setTimeout(() => {
+          if (currentUser && currentUser.role === 'faculty') window.location.href = 'faculty.html';
+          else if (currentUser && currentUser.role === 'student') window.location.href = 'student.html';
+          else window.location.href = 'index.html';
+        }, 1200);
+        return;
+      }
+
+      document.getElementById('sidebar-name').textContent = currentUser.name || 'Admin';
+      document.getElementById('sidebar-avatar').outerHTML = `<div id="sidebar-avatar">${UI.avatarEl(currentUser.name || 'Admin', 44)}</div>`;
+
+      await switchAdminTab('overview');
+
+      // Auto-refresh active sessions every 6 seconds
+      setInterval(() => {
+        const activeTab = document.querySelector('.tab-panel.active');
+        if (activeTab && (activeTab.id === 'tab-overview' || activeTab.id === 'tab-activity')) {
+          loadUserActivity(true);
+          loadActiveUsers(true);
+        }
+      }, 6000);
+    }
+
+    const ADMIN_TAB_TITLES = {
+      overview: { title: 'Campus Overview', subtitle: 'Real-time MySQL session telemetry and activity metrics' },
+      activity: { title: 'User Activity & Live Sessions', subtitle: 'Currently active users and MySQL session counts' },
+      history: { title: 'Login & Logout History', subtitle: 'Complete audit trail stored permanently in MySQL' },
+      students: { title: 'Student Directory', subtitle: 'Enrolled students with login statistics' },
+      faculty: { title: 'Faculty Members', subtitle: 'Instructors and professors with login statistics' },
+      subjects: { title: 'Courses & Subjects', subtitle: 'Curriculum catalog and subject definitions' },
+      attendance: { title: 'Live Attendance Audit', subtitle: 'Real-time attendance logs submitted campus-wide' },
+      atrisk: { title: 'At-Risk Interventions', subtitle: 'Students with attendance below 75%' }
+    };
+
+    async function switchAdminTab(tab) {
+      document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+      document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+
+      const targetPanel = document.getElementById(`tab-${tab}`);
+      const targetNav = document.getElementById(`nav-${tab}`);
+      if (targetPanel) targetPanel.classList.add('active');
+      if (targetNav) targetNav.classList.add('active');
+
+      const meta = ADMIN_TAB_TITLES[tab] || { title: 'Admin', subtitle: '' };
+      document.getElementById('topbar-title').textContent = meta.title;
+      document.getElementById('topbar-subtitle').textContent = meta.subtitle;
+
+      if (tab === 'overview') { await loadOverview(); await loadUserActivity(); await loadActiveUsers(); }
+      if (tab === 'activity') { await loadUserActivity(); await loadActiveUsers(); }
+      if (tab === 'history') await loadLoginHistory();
+      if (tab === 'students') await loadStudents();
+      if (tab === 'faculty') await loadFaculty();
+      if (tab === 'subjects') await loadSubjects();
+      if (tab === 'attendance') await loadAttendanceLog();
+      if (tab === 'atrisk') await loadAtRiskStudents();
+    }
+
+    // ── User Activity & Metrics (Requirement 8) ───────────────
+    async function loadUserActivity(silent = false) {
+      try {
+        const data = await SAP.getUserActivity();
+        const setVal = (id, val) => {
+          const el = document.getElementById(id);
+          if (el) el.textContent = val ?? 0;
+        };
+
+        setVal('kpi-act-total-users', data.totalUsers);
+        setVal('kpi-act-total-signins', data.totalSignins);
+        setVal('kpi-act-currently-active', data.currentlyActive);
+        setVal('kpi-act-signed-out', data.signedOut);
+        setVal('kpi-act-expired', data.expiredSessions);
+
+        setVal('act-total-users', data.totalUsers);
+        setVal('act-total-signins', data.totalSignins);
+        setVal('act-currently-active', data.currentlyActive);
+        setVal('act-signed-out', data.signedOut);
+        setVal('act-expired', data.expiredSessions);
+      } catch (err) {
+        if (!silent) console.error('Failed to load user activity:', err);
+      }
+    }
+
+    // ── Currently Active Users (Requirement 5) ────────────────
+    async function loadActiveUsers(silent = false) {
+      const tbody = document.getElementById('active-users-tbody');
+      const overviewTbody = document.getElementById('overview-active-tbody');
+      try {
+        const res = await SAP.getActiveUsers();
+        const users = res.activeUsers || [];
+
+        if (tbody) {
+          if (!users.length) {
+            tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">No active user sessions right now.</td></tr>`;
+          } else {
+            tbody.innerHTML = users.map(u => `
+              <tr>
+                <td><strong>${escapeHtml(u.name)}</strong><br><span style="font-size:11px;color:var(--text-muted)">${escapeHtml(u.email)}</span></td>
+                <td><span class="badge ${u.role === 'admin' ? 'badge-warning' : u.role === 'faculty' ? 'badge-info' : 'badge-primary'}">${u.role.toUpperCase()}</span></td>
+                <td>${formatDateTime(u.login_time)}</td>
+                <td>${formatDateTime(u.last_activity)}</td>
+                <td><span class="badge-active-pulse">🟢 ACTIVE</span></td>
+                <td>${escapeHtml(u.device || 'Desktop')}</td>
+                <td>${escapeHtml(u.browser || 'Browser')}</td>
+                <td><code>${escapeHtml(u.ip_address || '127.0.0.1')}</code></td>
+              </tr>
+            `).join('');
+          }
+        }
+
+        if (overviewTbody) {
+          if (!users.length) {
+            overviewTbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:20px;color:var(--text-muted)">No active users</td></tr>`;
+          } else {
+            overviewTbody.innerHTML = users.slice(0, 5).map(u => `
+              <tr>
+                <td><strong>${escapeHtml(u.name)}</strong></td>
+                <td><span class="badge badge-sm">${u.role.toUpperCase()}</span></td>
+                <td>${formatDateTime(u.login_time)}</td>
+                <td><span class="badge-active-pulse">ACTIVE</span></td>
+              </tr>
+            `).join('');
+          }
+        }
+      } catch (err) {
+        if (!silent) console.error('Failed to load active users:', err);
+      }
+    }
+
+    // ── Login History (Requirement 7) ─────────────────────────
+    async function loadLoginHistory() {
+      const tbody = document.getElementById('login-history-tbody');
+      const status = document.getElementById('hist-filter-status')?.value || 'ALL';
+      const role = document.getElementById('hist-filter-role')?.value || 'ALL';
+      const timeRange = document.getElementById('hist-filter-time')?.value || 'all';
+      const search = document.getElementById('hist-filter-search')?.value || '';
+
+      try {
+        const res = await SAP.getLoginHistory({ status, role, timeRange, search });
+        const history = res.history || [];
+
+        if (!history.length) {
+          tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:32px;color:var(--text-muted)">No login records match the selected filters.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = history.map(h => {
+          let statusBadge = '<span class="badge-logged-out">LOGGED_OUT</span>';
+          if (h.status === 'ACTIVE') statusBadge = '<span class="badge-active-pulse">ACTIVE</span>';
+          else if (h.status === 'EXPIRED') statusBadge = '<span class="badge-expired">EXPIRED</span>';
+
+          return `
+            <tr>
+              <td><strong>${escapeHtml(h.name)}</strong><br><span style="font-size:11px;color:var(--text-muted)">${escapeHtml(h.email)}</span></td>
+              <td><span class="badge ${h.role === 'admin' ? 'badge-warning' : h.role === 'faculty' ? 'badge-info' : 'badge-primary'}">${h.role.toUpperCase()}</span></td>
+              <td>${formatDateTime(h.login_time)}</td>
+              <td>${h.logout_time ? formatDateTime(h.logout_time) : '<span style="color:var(--text-muted)">— (Active)</span>'}</td>
+              <td>${statusBadge}</td>
+              <td>${escapeHtml(h.device || 'Desktop')}</td>
+              <td>${escapeHtml(h.browser || 'Browser')}</td>
+              <td><code>${escapeHtml(h.ip_address || '127.0.0.1')}</code></td>
+            </tr>
+          `;
+        }).join('');
+      } catch (err) {
+        console.error('Failed to load login history:', err);
+        tbody.innerHTML = `<tr><td colspan="8" style="text-align:center;padding:24px;color:var(--danger)">Error loading history from MySQL</td></tr>`;
+      }
+    }
+
+    function debounceHistorySearch() {
+      clearTimeout(historySearchTimer);
+      historySearchTimer = setTimeout(() => loadLoginHistory(), 300);
+    }
+
+    function resetHistoryFilters() {
+      if (document.getElementById('hist-filter-search')) document.getElementById('hist-filter-search').value = '';
+      if (document.getElementById('hist-filter-status')) document.getElementById('hist-filter-status').value = 'ALL';
+      if (document.getElementById('hist-filter-role')) document.getElementById('hist-filter-role').value = 'ALL';
+      if (document.getElementById('hist-filter-time')) document.getElementById('hist-filter-time').value = 'all';
+      loadLoginHistory();
+    }
+
+    // ── Campus Overview ───────────────────────────────────────
+    async function loadOverview() {
+      try {
+        const data = await SAP.getAdminDashboard();
+        const t = data.totals || {};
+
+        document.getElementById('kpi-total-students').textContent = t.totalStudents || 0;
+        document.getElementById('kpi-total-faculty').textContent = t.totalFaculty || 0;
+        document.getElementById('kpi-total-subjects').textContent = t.totalSubjects || 0;
+        document.getElementById('kpi-avg-attendance').textContent = `${t.averageAttendance || 85}%`;
+
+        // Top signins
+        const statsRes = await SAP.getLoginStatistics();
+        const topUsers = (statsRes.userStatistics || []).slice(0, 5);
+        const topTbody = document.getElementById('overview-top-signins-tbody');
+        if (topTbody) {
+          topTbody.innerHTML = topUsers.map(u => `
+            <tr>
+              <td><strong>${escapeHtml(u.name)}</strong></td>
+              <td><span class="badge badge-sm">${u.role.toUpperCase()}</span></td>
+              <td><strong>${u.total_signins}</strong> Sign-ins</td>
+              <td>${u.is_active ? '<span class="badge-yes">ACTIVE</span>' : '<span class="badge-no">OFFLINE</span>'}</td>
+            </tr>
+          `).join('');
+        }
+      } catch (err) {
+        console.error('Failed to load admin overview:', err);
+      }
+    }
+
+    // ── Students Table (Requirement 9 & 10) ───────────────────
+    async function loadStudents() {
+      const tbody = document.getElementById('admin-students-tbody');
+      try {
+        const res = await SAP.apiRequest('/api/admin/students');
+        const students = res.students || [];
+
+        if (!students.length) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">No students found in MySQL database.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = students.map(s => `
+          <tr>
+            <td><strong>${escapeHtml(s.name)}</strong></td>
+            <td>${escapeHtml(s.email)}</td>
+            <td><span class="badge badge-primary">STUDENT</span></td>
+            <td>${s.is_active ? '<span class="badge-yes">YES</span>' : '<span class="badge-no">NO</span>'}</td>
+            <td><strong style="color:var(--primary-light)">${s.total_signins || 0}</strong> Sign-ins</td>
+            <td>${s.last_login_at ? formatDateTime(s.last_login_at) : '<span style="color:var(--text-muted)">Never</span>'}</td>
+            <td>${s.last_logout_at ? formatDateTime(s.last_logout_at) : '<span style="color:var(--text-muted)">—</span>'}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--danger)">Failed to load students.</td></tr>`;
+      }
+    }
+
+    // ── Faculty Table (Requirement 9 & 10) ────────────────────
+    async function loadFaculty() {
+      const tbody = document.getElementById('admin-faculty-tbody');
+      try {
+        const res = await SAP.apiRequest('/api/admin/faculty');
+        const faculty = res.faculty || [];
+
+        if (!faculty.length) {
+          tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--text-muted)">No faculty members found in MySQL database.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = faculty.map(f => `
+          <tr>
+            <td><strong>${escapeHtml(f.name)}</strong></td>
+            <td>${escapeHtml(f.email)}</td>
+            <td><span class="badge badge-info">FACULTY</span></td>
+            <td>${f.is_active ? '<span class="badge-yes">YES</span>' : '<span class="badge-no">NO</span>'}</td>
+            <td><strong style="color:var(--primary-light)">${f.total_signins || 0}</strong> Sign-ins</td>
+            <td>${f.last_login_at ? formatDateTime(f.last_login_at) : '<span style="color:var(--text-muted)">Never</span>'}</td>
+            <td>${f.last_logout_at ? formatDateTime(f.last_logout_at) : '<span style="color:var(--text-muted)">—</span>'}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;padding:24px;color:var(--danger)">Failed to load faculty.</td></tr>`;
+      }
+    }
+
+    // ── Subjects Table ────────────────────────────────────────
+    async function loadSubjects() {
+      const tbody = document.getElementById('admin-subjects-tbody');
+      try {
+        const res = await SAP.apiRequest('/api/faculty/subjects');
+        const subs = res.subjects || [];
+
+        if (!subs.length) {
+          tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--text-muted)">No subjects registered.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = subs.map(s => `
+          <tr>
+            <td><code>${escapeHtml(s.subject_code)}</code></td>
+            <td><strong>${escapeHtml(s.subject_name)}</strong></td>
+            <td>Semester ${s.semester || 1}</td>
+            <td>${formatDateTime(s.created_at)}</td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="4" style="text-align:center;padding:24px;color:var(--danger)">Failed to load subjects.</td></tr>`;
+      }
+    }
+
+    // ── Attendance Logs ───────────────────────────────────────
+    async function loadAttendanceLog() {
+      const tbody = document.getElementById('admin-attendance-tbody');
+      try {
+        const res = await SAP.apiRequest('/api/admin/attendance-logs');
+        const records = res.records || [];
+
+        if (!records.length) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted)">No attendance records logged yet.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = records.map(r => `
+          <tr>
+            <td>${r.date}</td>
+            <td>${r.time}</td>
+            <td><strong>${escapeHtml(r.student_name)}</strong></td>
+            <td>${escapeHtml(r.student_email || '')}</td>
+            <td>${escapeHtml(r.subject_name || r.subject_code)}</td>
+            <td><span class="badge badge-success">PRESENT</span></td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--danger)">Failed to load attendance logs.</td></tr>`;
+      }
+    }
+
+    // ── At Risk Students ──────────────────────────────────────
+    async function loadAtRiskStudents() {
+      const tbody = document.getElementById('admin-atrisk-tbody');
+      try {
+        const res = await SAP.apiRequest('/api/faculty/low-attendance');
+        const records = res.records || [];
+
+        if (!records.length) {
+          tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted)">All students are currently maintaining satisfactory attendance &gt; 75%.</td></tr>`;
+          return;
+        }
+
+        tbody.innerHTML = records.map(r => `
+          <tr>
+            <td><strong>${escapeHtml(r.name || r.student_name)}</strong></td>
+            <td>${escapeHtml(r.email || '')}</td>
+            <td>${r.total_classes || r.total || 0}</td>
+            <td>${r.attended || 0}</td>
+            <td><strong style="color:var(--danger)">${r.percentage}%</strong></td>
+            <td><span class="badge badge-danger">AT RISK</span></td>
+          </tr>
+        `).join('');
+      } catch (err) {
+        tbody.innerHTML = `<tr><td colspan="6" style="text-align:center;padding:24px;color:var(--text-muted)">No at-risk students found.</td></tr>`;
+      }
+    }
+
+    // ── User Registration Modal ───────────────────────────────
+    function openAddUserModal(role = 'student') {
+      document.getElementById('add-user-role').value = role;
+      document.getElementById('modal-add-user').style.display = 'flex';
+      document.getElementById('add-user-name').focus();
+    }
+
+    function closeAddUserModal() {
+      document.getElementById('modal-add-user').style.display = 'none';
+      document.getElementById('form-add-user').reset();
+    }
+
+    async function submitAddUser(e) {
+      e.preventDefault();
+      const name = document.getElementById('add-user-name').value.trim();
+      const email = document.getElementById('add-user-email').value.trim();
+      const password = document.getElementById('add-user-password').value;
+      const role = document.getElementById('add-user-role').value;
+
+      try {
+        const res = await SAP.apiRequest('/api/auth/register', {
+          method: 'POST',
+          body: JSON.stringify({ name, email, password, role }),
+        });
+
+        UI.showToast(`User ${name} registered in MySQL successfully!`, 'success');
+        closeAddUserModal();
+        if (role === 'student') await loadStudents();
+        else if (role === 'faculty') await loadFaculty();
+        await loadUserActivity();
+      } catch (err) {
+        UI.showToast(err.message || 'Registration failed', 'error');
+      }
+    }
+
+    // ── Sign Out ──────────────────────────────────────────────
+    async function handleLogout() {
+      UI.showToast('Signing out of MySQL session...', 'info');
+      await SAP.logout();
+    }
+
+    // ── Helpers ───────────────────────────────────────────────
+    function formatDateTime(isoStr) {
+      if (!isoStr) return '—';
+      try {
+        const d = new Date(isoStr);
+        if (isNaN(d.getTime())) return String(isoStr);
+        return d.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', hour12: true }) + ' ' + d.toLocaleDateString([], { month: 'short', day: 'numeric' });
+      } catch {
+        return String(isoStr);
+      }
+    }
+
+    function escapeHtml(str) {
+      if (!str) return '';
+      return String(str)
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;');
+    }
+
+    document.addEventListener('DOMContentLoaded', init);
+  </script>
+</body>
+</html>
