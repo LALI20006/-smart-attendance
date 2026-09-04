@@ -232,8 +232,10 @@
                   </div>
 
                   <div style="background:var(--bg-elevated);border:1px solid var(--border-subtle);border-radius:var(--radius-md);padding:12px 16px;width:100%">
-                    <div style="font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Session Token</div>
-                    <div style="font-size:11px;color:var(--primary-light);font-family:monospace;word-break:break-all" id="session-token-display">—</div>
+                    <div style="font-size:10px;color:var(--text-muted);font-weight:700;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:4px">Session Token & Custom Domain Link</div>
+                    <div style="font-size:14px;font-weight:700;color:var(--primary-light);font-family:monospace;letter-spacing:1px" id="session-token-display">—</div>
+                    <div style="font-size:11px;color:var(--text-secondary);word-break:break-all;margin-top:6px;font-family:monospace" id="session-url-display">https://attendence.in.com</div>
+                    <div style="font-size:10px;color:var(--text-muted);margin-top:4px">📱 Scan with phone camera or AttendPro student scanner</div>
                   </div>
 
                   <button class="btn btn-danger btn-sm w-full" onclick="endCurrentSession()">
@@ -590,7 +592,12 @@
       document.getElementById('active-sess-sub').textContent = `${activeSession.subjectCode || ''} · Code: ${activeSession.sessionCode}`;
       document.getElementById('session-token-display').textContent = activeSession.sessionCode;
 
-      // Generate QR using qrcode.js CDN
+      // Generate QR using qrcode.js CDN with custom domain URL
+      const currentOrigin = (window.location.origin && window.location.origin !== 'null' && !window.location.origin.includes('file:'))
+        ? window.location.origin
+        : 'https://attendence.in.com';
+      const qrScanUrl = activeSession.qrUrl || `${currentOrigin}/student.html?session=${activeSession.sessionCode}&code=${activeSession.sessionCode}`;
+
       const container = document.getElementById('qr-code-container');
       container.innerHTML = '';
       const wrapper = document.createElement('div');
@@ -599,7 +606,7 @@
 
       if (typeof QRCode !== 'undefined') {
         new QRCode(wrapper, {
-          text: activeSession.qrToken || activeSession.sessionCode,
+          text: qrScanUrl,
           width: 220, height: 220,
           colorDark: '#0A0B1A', colorLight: '#FFFFFF',
           correctLevel: QRCode.CorrectLevel.H,
@@ -607,6 +614,9 @@
       } else {
         wrapper.innerHTML = `<div style="color:#000;font-size:24px;font-weight:bold;padding:40px;">${activeSession.sessionCode}</div>`;
       }
+
+      const urlDisplay = document.getElementById('session-url-display');
+      if (urlDisplay) urlDisplay.textContent = qrScanUrl;
 
       // Countdown
       clearInterval(qrTimerInterval);

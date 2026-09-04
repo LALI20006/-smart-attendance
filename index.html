@@ -452,9 +452,10 @@
 
         UI.showToast(`Welcome, ${user.name.split(' ')[0]}! 👋`, 'success');
         setTimeout(() => {
+          const pending = sessionStorage.getItem('pending_attendance_session');
           if (user.role === 'admin') window.location.href = 'admin.html';
           else if (user.role === 'faculty') window.location.href = 'faculty.html';
-          else window.location.href = 'student.html';
+          else window.location.href = pending ? `student.html?session=${encodeURIComponent(pending)}` : 'student.html';
         }, 300);
       }).catch((error) => {
         UI.setButtonLoading(btn, false);
@@ -516,9 +517,10 @@
 
         UI.showToast(`Account created! Signing you in...`, 'success');
         return SAP.login(email, password, selectedRole).then((user) => {
+          const pending = sessionStorage.getItem('pending_attendance_session');
           if (user.role === 'admin') window.location.href = 'admin.html';
           else if (user.role === 'faculty') window.location.href = 'faculty.html';
-          else window.location.href = 'student.html';
+          else window.location.href = pending ? `student.html?session=${encodeURIComponent(pending)}` : 'student.html';
         });
       }).catch((error) => {
         errorEl.textContent = error.message || 'Unable to create your account.';

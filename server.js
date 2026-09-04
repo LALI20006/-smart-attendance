@@ -16,7 +16,20 @@ app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
 const JWT_SECRET = process.env.JWT_SECRET || 'attendpro_prod_jwt_secret_2026_key_secure_99';
-const CORS_ORIGIN = process.env.CORS_ORIGIN || '*';
+const APP_URL = (process.env.APP_URL || 'https://attendence.in.com').replace(/\/$/, '');
+
+// Automatic HTTP -> HTTPS redirection in production when behind a reverse proxy (Render, Cloudflare, Railway, etc.)
+app.use((req, res, next) => {
+  if (
+    process.env.NODE_ENV === 'production' &&
+    req.headers['x-forwarded-proto'] &&
+    req.headers['x-forwarded-proto'] !== 'https'
+  ) {
+    const host = req.headers.host || 'attendence.in.com';
+    return res.redirect(301, `https://${host}${req.url}`);
+  }
+  next();
+});
 
 // Security Headers
 app.use(
@@ -26,11 +39,39 @@ app.use(
   })
 );
 
-// CORS
+// CORS for custom domain and API subdomains
+const allowedOrigins = [
+  'https://attendence.in.com',
+  'https://www.attendence.in.com',
+  'https://api.attendence.in.com',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
+  APP_URL,
+];
+
 app.use(
   cors({
-    origin: CORS_ORIGIN === '*' ? true : CORS_ORIGIN.split(','),
+    origin: (origin, callback) => {
+      if (!origin) return callback(null, true);
+      if (process.env.CORS_ORIGIN && process.env.CORS_ORIGIN !== '*') {
+        const customAllowed = process.env.CORS_ORIGIN.split(',').map((s) => s.trim());
+        if (customAllowed.includes(origin) || customAllowed.includes('*')) {
+          return callback(null, true);
+        }
+      }
+      if (
+        allowedOrigins.includes(origin) ||
+        origin.endsWith('.attendence.in.com') ||
+        origin.endsWith('attendence.in.com') ||
+        process.env.CORS_ORIGIN === '*'
+      ) {
+        return callback(null, true);
+      }
+      return callback(null, true);
+    },
     credentials: true,
+    methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'X-Requested-With', 'Accept', 'Origin'],
   })
 );
 
@@ -801,7 +842,19 @@ app.post('/api/attendance/mark', authenticateToken, requireRole('student', 'admi
   try {
     const { sessionCode, qrToken, gpsValid = true } = req.body || {};
     const stuId = req.user.id;
-    const targetCode = String(sessionCode || qrToken || '').trim().toUpperCase();
+    let targetCode = String(sessionCode || qrToken || '').trim();
+
+    // If student scans QR with full custom domain URL (e.g. https://attendence.in.com/student.html?session=CS123456)
+    if (targetCode.includes('?') || targetCode.startsWith('http')) {
+      try {
+        const u = new URL(targetCode.startsWith('http') ? targetCode : `https://attendence.in.com/${targetCode}`);
+        targetCode = u.searchParams.get('session') || u.searchParams.get('code') || targetCode;
+      } catch (e) {
+        const m = targetCode.match(/[?&](?:session|code)=([A-Z0-9_-]+)/i);
+        if (m) targetCode = m[1];
+      }
+    }
+    targetCode = targetCode.toUpperCase();
 
     if (!targetCode) {
       return res.status(400).json({ error: 'Session code or QR token is required.' });
@@ -987,6 +1040,8 @@ app.post('/api/sessions/create', authenticateToken, requireRole('faculty', 'admi
 
     const endTime = new Date(Date.now() + dur * 60000).toISOString();
 
+    const qrUrl = `${APP_URL}/student.html?session=${sessionCode}&code=${sessionCode}`;
+
     return res.status(201).json({
       success: true,
       session: {
@@ -997,6 +1052,7 @@ app.post('/api/sessions/create', authenticateToken, requireRole('faculty', 'admi
         topic,
         sessionCode,
         qrToken: sessionCode,
+        qrUrl,
         durationMinutes: dur,
         endTime,
       },

@@ -263,15 +263,34 @@
 
     // ── Init ─────────────────────────────────
     async function init() {
+      // Check if arriving via QR scan on phone camera
+      const urlParams = new URLSearchParams(window.location.search);
+      const incomingCode = urlParams.get('session') || urlParams.get('code');
+
       currentUser = SAP.getCurrentUser();
       const token = SAP.getToken();
       if (!currentUser || !token || currentUser.role !== 'student') {
+        if (incomingCode) {
+          sessionStorage.setItem('pending_attendance_session', incomingCode);
+        }
         SAP.logout();
         window.location.href = 'index.html';
         return;
       }
       renderNavbar();
       await loadPage();
+
+      // Check if there is an incoming code from query params or preserved session
+      const pendingCode = incomingCode || sessionStorage.getItem('pending_attendance_session');
+      if (pendingCode) {
+        sessionStorage.removeItem('pending_attendance_session');
+        if (window.history && window.history.replaceState) {
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+        setTimeout(() => {
+          processAttendanceToken(pendingCode);
+        }, 500);
+      }
 
       // Poll for active live sessions every 10 seconds
       livePollInterval = setInterval(loadSessions, 10000);
@@ -506,6 +525,22 @@
     }
 
     async function processAttendanceToken(token) {
+      let cleanToken = String(token || '').trim();
+      if (cleanToken.includes('?') || cleanToken.startsWith('http')) {
+        try {
+          const u = new URL(cleanToken.startsWith('http') ? cleanToken : `https://attendence.in.com/${cleanToken}`);
+          cleanToken = u.searchParams.get('session') || u.searchParams.get('code') || cleanToken;
+        } catch (e) {
+          const m = cleanToken.match(/[?&](?:session|code)=([A-Z0-9_-]+)/i);
+          if (m) cleanToken = m[1];
+        }
+      }
+      cleanToken = cleanToken.toUpperCase();
+      if (!cleanToken) {
+        UI.showToast('Invalid session token format.', 'warning');
+        return;
+      }
+
       // Show GPS check
       UI.openModal('gps-modal');
       await new Promise(r => setTimeout(r, 800));
@@ -515,7 +550,7 @@
       UI.closeModal('gps-modal');
 
       try {
-        const res = await SAP.markAttendance(token, gpsValid);
+        const res = await SAP.markAttendance(cleanToken, gpsValid);
         document.getElementById('success-subject').textContent = res.subjectName || 'Course Session';
         document.getElementById('success-time').textContent = `Marked at ${res.time || new Date().toLocaleTimeString('en-US')}${loc.simulated ? ' · GPS simulated' : ' · GPS verified ✓'}`;
         UI.openModal('success-modal');

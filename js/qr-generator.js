@@ -29,7 +29,11 @@ function generateQR(containerId, text, size = 240) {
 }
 
 function startSessionQR(session, containerId, timerDisplayId, onExpire) {
-  generateQR(containerId, session.qrToken, 220);
+  const currentOrigin = (typeof window !== 'undefined' && window.location.origin && window.location.origin !== 'null' && !window.location.origin.includes('file:'))
+    ? window.location.origin
+    : 'https://attendence.in.com';
+  const qrUrl = session.qrUrl || `${currentOrigin}/student.html?session=${session.sessionCode || session.qrToken}&code=${session.sessionCode || session.qrToken}`;
+  generateQR(containerId, qrUrl, 220);
 
   const timer = document.getElementById(timerDisplayId);
   const interval = setInterval(() => {

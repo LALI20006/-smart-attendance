@@ -38,8 +38,9 @@ function setCurrentUser(user) {
 
 function getApiBase() {
   if (typeof window === 'undefined') return '';
-  if (window.location.protocol === 'file:') return 'http://localhost:3000';
-  return window.location.origin || '';
+  if (window.ENV_API_URL) return window.ENV_API_URL.replace(/\/$/, '');
+  if (window.location.protocol === 'file:') return 'https://attendence.in.com';
+  return window.location.origin || 'https://attendence.in.com';
 }
 
 async function apiRequest(endpoint, options = {}) {
