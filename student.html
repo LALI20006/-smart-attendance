@@ -87,88 +87,76 @@
           <!-- Populated by JS -->
         </div>
 
-        <!-- Schedule Calendar Widget -->
-        <div class="schedule-calendar-card">
+        <!-- Live Schedule Calendar Widget (Multi-Year 2023 - 2029) -->
+        <div class="schedule-calendar-card" id="schedule-calendar-card">
           <div class="schedule-header">
-            <span class="schedule-icon">📅</span> Schedule Calendar
+            <div style="display:flex;align-items:center">
+              <span class="schedule-icon">📅</span>
+              <span>Schedule Calendar</span>
+            </div>
+            <button type="button" class="btn-today-chip" onclick="jumpScheduleToday()" title="Jump to today">Today</button>
           </div>
           <div class="schedule-month-nav">
-            <button class="nav-arrow">&laquo;</button>
-            <div class="current-month">August 2026</div>
-            <button class="nav-arrow">&raquo;</button>
+            <button type="button" class="nav-arrow" onclick="changeScheduleMonth(-1)" title="Previous month">&laquo;</button>
+            <div class="schedule-nav-selectors">
+              <select id="schedule-month-select" class="schedule-select" onchange="onScheduleMonthSelect(this.value)">
+                <option value="0">Jan</option>
+                <option value="1">Feb</option>
+                <option value="2">Mar</option>
+                <option value="3">Apr</option>
+                <option value="4">May</option>
+                <option value="5">Jun</option>
+                <option value="6">Jul</option>
+                <option value="7">Aug</option>
+                <option value="8">Sep</option>
+                <option value="9">Oct</option>
+                <option value="10">Nov</option>
+                <option value="11">Dec</option>
+              </select>
+              <select id="schedule-year-select" class="schedule-select" onchange="onScheduleYearSelect(this.value)">
+                <option value="2023">2023</option>
+                <option value="2024">2024</option>
+                <option value="2025">2025</option>
+                <option value="2026">2026</option>
+                <option value="2027">2027</option>
+                <option value="2028">2028</option>
+                <option value="2029">2029</option>
+              </select>
+            </div>
+            <button type="button" class="nav-arrow" onclick="changeScheduleMonth(1)" title="Next month">&raquo;</button>
           </div>
-          <div class="schedule-grid">
-            <div class="day-name">Su</div>
-            <div class="day-name">Mo</div>
-            <div class="day-name">Tu</div>
-            <div class="day-name">We</div>
-            <div class="day-name">Th</div>
-            <div class="day-name">Fr</div>
-            <div class="day-name">Sa</div>
-            
-            <div class="schedule-date other-month">26</div>
-            <div class="schedule-date other-month">27</div>
-            <div class="schedule-date other-month">28</div>
-            <div class="schedule-date other-month">29</div>
-            <div class="schedule-date other-month">30</div>
-            <div class="schedule-date other-month">31</div>
-            <div class="schedule-date">1</div>
-            
-            <div class="schedule-date">2</div>
-            <div class="schedule-date">3</div>
-            <div class="schedule-date">4</div>
-            <div class="schedule-date">5</div>
-            <div class="schedule-date">6</div>
-            <div class="schedule-date">7</div>
-            <div class="schedule-date">8</div>
-            
-            <div class="schedule-date">9</div>
-            <div class="schedule-date">10</div>
-            <div class="schedule-date">11</div>
-            <div class="schedule-date">12</div>
-            <div class="schedule-date">13</div>
-            <div class="schedule-date">14</div>
-            <div class="schedule-date">15</div>
-            
-            <div class="schedule-date">16</div>
-            <div class="schedule-date">17</div>
-            <div class="schedule-date">18</div>
-            <div class="schedule-date">19</div>
-            <div class="schedule-date">20</div>
-            <div class="schedule-date">21</div>
-            <div class="schedule-date">22</div>
-            
-            <div class="schedule-date">23</div>
-            <div class="schedule-date">24</div>
-            <div class="schedule-date active">25</div>
-            <div class="schedule-date">26</div>
-            <div class="schedule-date">27</div>
-            <div class="schedule-date">28</div>
-            <div class="schedule-date">29</div>
-            
-            <div class="schedule-date">30</div>
-            <div class="schedule-date">31</div>
-            <div class="schedule-date other-month">1</div>
-            <div class="schedule-date other-month">2</div>
-            <div class="schedule-date other-month">3</div>
-            <div class="schedule-date other-month">4</div>
-            <div class="schedule-date other-month">5</div>
+          <div class="schedule-grid" id="live-schedule-grid">
+            <!-- Dynamically rendered -->
+          </div>
+          <div class="schedule-date-summary" id="schedule-day-summary">
+            Select any day to view attendance records
           </div>
           <div class="schedule-indicator">
-            <div class="dot"></div>
+            <div class="schedule-legend-item">
+              <div class="legend-dot today-dot"></div>
+              <span>Today</span>
+            </div>
+            <div class="schedule-legend-item">
+              <div class="legend-dot att-dot"></div>
+              <span>Attended</span>
+            </div>
           </div>
         </div>
       </div>
 
-      <!-- Attendance Calendar -->
+      <!-- Attendance Calendar & 4-Year Academic Journey -->
       <div class="section-header" style="margin-top: var(--space-2xl)">
         <div>
-          <h2 class="section-title">📆 Attendance Calendar</h2>
-          <p class="section-subtitle">Visual view of your attendance history</p>
+          <h2 class="section-title">📆 Academic Calendar & 4-Year Journey</h2>
+          <p class="section-subtitle">Visual overview of your attendance records across multiple academic years</p>
         </div>
-        <div style="display: flex; gap: 8px;">
-          <button class="btn btn-ghost btn-sm" onclick="prevMonth()">← Prev</button>
-          <button class="btn btn-ghost btn-sm" onclick="nextMonth()">Next →</button>
+        <div style="display: flex; gap: 8px; align-items: center; flex-wrap: wrap;">
+          <div class="calendar-view-toggle">
+            <button type="button" class="toggle-btn active" id="btn-view-month" onclick="switchCalendarView('month')">Month View</button>
+            <button type="button" class="toggle-btn" id="btn-view-4year" onclick="switchCalendarView('4year')">4-Year Degree View (2024–2027)</button>
+          </div>
+          <button type="button" class="btn btn-ghost btn-sm" id="cal-prev-btn" onclick="prevMonth()">← Prev</button>
+          <button type="button" class="btn btn-ghost btn-sm" id="cal-next-btn" onclick="nextMonth()">Next →</button>
         </div>
       </div>
       <div style="background:var(--bg-card);border:1px solid var(--border-subtle);border-radius:var(--radius-xl);padding:var(--space-lg)">
@@ -537,38 +525,199 @@
       }
     }
 
-    // ── Calendar ─────────────────────────────
+    // ── Live Calendar State (Multi-Year 2023 - 2029) ───
     let currentCalendarMonth = new Date();
+    let scheduleSelectedYear = new Date().getFullYear();
+    let scheduleSelectedMonth = new Date().getMonth();
+    let scheduleSelectedDateStr = new Date().toISOString().split('T')[0];
+    let calendarViewMode = 'month'; // 'month' or '4year'
+
+    // Helper: Get student attendance map { 'YYYY-MM-DD': [records] }
+    function getStudentAttendanceMap() {
+      const allAttendance = (typeof SAP !== 'undefined' && SAP.getAttendanceByStudent ? SAP.getAttendanceByStudent(currentUser?.id) : []) || [];
+      const map = {};
+      allAttendance.forEach(a => {
+        try {
+          const raw = a.timestamp || a.created_at || (a.date ? `${a.date}T${a.time || '12:00:00'}` : null);
+          const dStr = raw ? new Date(raw).toISOString().split('T')[0] : a.date;
+          if (dStr) {
+            if (!map[dStr]) map[dStr] = [];
+            map[dStr].push(a);
+          }
+        } catch {}
+      });
+      return map;
+    }
+
+    // ── 1. Live Schedule Calendar (Top Card) ───────────
+    function renderScheduleCalendar() {
+      const attMap = getStudentAttendanceMap();
+      const grid = document.getElementById('live-schedule-grid');
+      const monthSelect = document.getElementById('schedule-month-select');
+      const yearSelect = document.getElementById('schedule-year-select');
+
+      if (monthSelect) monthSelect.value = scheduleSelectedMonth;
+      if (yearSelect) yearSelect.value = scheduleSelectedYear;
+
+      const year = scheduleSelectedYear;
+      const month = scheduleSelectedMonth;
+      const today = new Date().toISOString().split('T')[0];
+
+      const firstDay = new Date(year, month, 1).getDay();
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      const daysInPrevMonth = new Date(year, month, 0).getDate();
+
+      let html = `
+        <div class="day-name">Su</div>
+        <div class="day-name">Mo</div>
+        <div class="day-name">Tu</div>
+        <div class="day-name">We</div>
+        <div class="day-name">Th</div>
+        <div class="day-name">Fr</div>
+        <div class="day-name">Sa</div>
+      `;
+
+      // Previous month trailing days
+      for (let i = firstDay - 1; i >= 0; i--) {
+        const d = daysInPrevMonth - i;
+        html += `<div class="schedule-date other-month">${d}</div>`;
+      }
+
+      // Current month days
+      for (let d = 1; d <= daysInMonth; d++) {
+        const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+        const isToday = dateStr === today;
+        const isSelected = dateStr === scheduleSelectedDateStr;
+        const hasAtt = !!attMap[dateStr];
+
+        let classes = 'schedule-date';
+        if (isToday) classes += ' active';
+        if (isSelected && !isToday) classes += ' selected-date';
+        if (hasAtt) classes += ' has-att';
+
+        html += `<div class="${classes}" onclick="selectScheduleDay(${year}, ${month}, ${d}, '${dateStr}')" title="${dateStr}${hasAtt ? ' (Attended)' : ''}">${d}</div>`;
+      }
+
+      // Next month leading days
+      const totalCells = firstDay + daysInMonth;
+      const remainingCells = (totalCells % 7 === 0) ? 0 : (7 - (totalCells % 7));
+      for (let d = 1; d <= remainingCells; d++) {
+        html += `<div class="schedule-date other-month">${d}</div>`;
+      }
+
+      if (grid) grid.innerHTML = html;
+      updateScheduleSummary(scheduleSelectedDateStr);
+    }
+
+    function selectScheduleDay(year, month, day, dateStr) {
+      scheduleSelectedDateStr = dateStr;
+      renderScheduleCalendar();
+    }
+
+    function updateScheduleSummary(dateStr) {
+      const el = document.getElementById('schedule-day-summary');
+      if (!el) return;
+      const attMap = getStudentAttendanceMap();
+      const records = attMap[dateStr] || [];
+      const d = new Date(dateStr + 'T00:00:00');
+      const dateFormatted = d.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric', year: 'numeric' });
+
+      if (records.length > 0) {
+        const subjectNames = records.map(r => r.subject_name || r.subject_code || 'Class').join(', ');
+        el.innerHTML = `<strong>${dateFormatted}</strong>: <span style="color:#0F9D58;font-weight:700">✓ Attended (${records.length})</span> — ${subjectNames}`;
+      } else {
+        const isToday = dateStr === new Date().toISOString().split('T')[0];
+        el.innerHTML = `<strong>${dateFormatted}</strong>: ${isToday ? 'Today — No classes marked yet.' : 'No recorded attendance on this date.'}`;
+      }
+    }
+
+    function changeScheduleMonth(delta) {
+      scheduleSelectedMonth += delta;
+      if (scheduleSelectedMonth < 0) {
+        scheduleSelectedMonth = 11;
+        scheduleSelectedYear--;
+      } else if (scheduleSelectedMonth > 11) {
+        scheduleSelectedMonth = 0;
+        scheduleSelectedYear++;
+      }
+      if (scheduleSelectedYear < 2023) scheduleSelectedYear = 2023;
+      if (scheduleSelectedYear > 2029) scheduleSelectedYear = 2029;
+
+      renderScheduleCalendar();
+    }
+
+    function onScheduleMonthSelect(val) {
+      scheduleSelectedMonth = parseInt(val, 10);
+      renderScheduleCalendar();
+    }
+
+    function onScheduleYearSelect(val) {
+      scheduleSelectedYear = parseInt(val, 10);
+      renderScheduleCalendar();
+    }
+
+    function jumpScheduleToday() {
+      const now = new Date();
+      scheduleSelectedYear = now.getFullYear();
+      scheduleSelectedMonth = now.getMonth();
+      scheduleSelectedDateStr = now.toISOString().split('T')[0];
+      renderScheduleCalendar();
+    }
+
+    // ── 2. Lower Main Calendar (Month View & 4-Year Journey) ───
+    function switchCalendarView(mode) {
+      calendarViewMode = mode;
+      document.getElementById('btn-view-month')?.classList.toggle('active', mode === 'month');
+      document.getElementById('btn-view-4year')?.classList.toggle('active', mode === '4year');
+      
+      const prevBtn = document.getElementById('cal-prev-btn');
+      const nextBtn = document.getElementById('cal-next-btn');
+      if (prevBtn) prevBtn.style.display = mode === 'month' ? 'inline-block' : 'none';
+      if (nextBtn) nextBtn.style.display = mode === 'month' ? 'inline-block' : 'none';
+
+      renderCalendar();
+    }
 
     function renderCalendar() {
-      const allAttendance = (typeof SAP !== 'undefined' && SAP.getAttendanceByStudent ? SAP.getAttendanceByStudent(currentUser?.id) : []) || [];
-      const attendanceDates = new Set(
-        allAttendance.map(a => {
-          try {
-            const raw = a.timestamp || a.created_at || (a.date ? `${a.date}T${a.time || '12:00:00'}` : null);
-            return raw ? new Date(raw).toISOString().split('T')[0] : a.date;
-          } catch {
-            return a.date || null;
-          }
-        }).filter(Boolean)
-      );
+      // 1. Always update top schedule widget
+      renderScheduleCalendar();
 
+      // 2. Render bottom container based on view mode
+      const container = document.getElementById('calendar-container');
+      if (!container) return;
+
+      if (calendarViewMode === '4year') {
+        render4YearDegreeCalendar(container);
+      } else {
+        renderSingleMonthCalendar(container);
+      }
+    }
+
+    // Single Month View (with Year & Month pickers spanning 4+ years)
+    function renderSingleMonthCalendar(container) {
+      const attMap = getStudentAttendanceMap();
       const year = currentCalendarMonth.getFullYear();
       const month = currentCalendarMonth.getMonth();
       const today = new Date().toISOString().split('T')[0];
 
-      // Month header
       const monthName = currentCalendarMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
-      const container = document.getElementById('calendar-container');
-
-      // Get first day of month and number of days
       const firstDay = new Date(year, month, 1).getDay();
       const daysInMonth = new Date(year, month + 1, 0).getDate();
       const daysInPrevMonth = new Date(year, month, 0).getDate();
 
       let html = `
         <div class="calendar-wrapper">
-          <div class="calendar-month-header">${monthName}</div>
+          <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;flex-wrap:wrap;gap:8px">
+            <div class="calendar-month-header" style="margin:0">${monthName}</div>
+            <div style="display:flex;gap:6px">
+              <select class="schedule-select" onchange="jumpMainCalendarMonth(this.value)">
+                ${['January','February','March','April','May','June','July','August','September','October','November','December'].map((m, idx) => `<option value="${idx}" ${idx === month ? 'selected' : ''}>${m}</option>`).join('')}
+              </select>
+              <select class="schedule-select" onchange="jumpMainCalendarYear(this.value)">
+                ${[2023, 2024, 2025, 2026, 2027, 2028, 2029].map(y => `<option value="${y}" ${y === year ? 'selected' : ''}>${y}</option>`).join('')}
+              </select>
+            </div>
+          </div>
           <div class="calendar-weekdays">
             <div class="calendar-weekday">Sun</div>
             <div class="calendar-weekday">Mon</div>
@@ -580,26 +729,23 @@
           </div>
           <div class="calendar-grid">`;
 
-      // Previous month's days
       for (let i = firstDay - 1; i >= 0; i--) {
         const day = daysInPrevMonth - i;
         html += `<div class="calendar-day other-month">${day}</div>`;
       }
 
-      // Current month's days
       for (let day = 1; day <= daysInMonth; day++) {
         const dateStr = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
-        const hasAttendance = attendanceDates.has(dateStr);
+        const hasAttendance = !!attMap[dateStr];
         const isToday = dateStr === today;
 
         let classes = 'calendar-day';
         if (hasAttendance) classes += ' has-attendance';
         if (isToday) classes += ' today';
 
-        html += `<div class="${classes}" title="${dateStr}">${day}</div>`;
+        html += `<div class="${classes}" title="${dateStr}${hasAttendance ? ' (Attended)' : ''}">${day}</div>`;
       }
 
-      // Next month's days
       const totalCells = firstDay + daysInMonth;
       const remainingCells = 42 - totalCells;
       for (let day = 1; day <= remainingCells; day++) {
@@ -621,6 +767,96 @@
         </div>`;
 
       container.innerHTML = html;
+    }
+
+    // 4-Year Degree Overview (2024 - 2027)
+    function render4YearDegreeCalendar(container) {
+      const attMap = getStudentAttendanceMap();
+      const academicYears = [
+        { year: 2024, label: '1st Year (2024)' },
+        { year: 2025, label: '2nd Year (2025)' },
+        { year: 2026, label: '3rd Year (Current 2026)', current: true },
+        { year: 2027, label: '4th Year (Final 2027)' },
+      ];
+
+      const monthNames = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'];
+      const currentRealYear = new Date().getFullYear();
+      const currentRealMonth = new Date().getMonth();
+
+      let html = `
+        <div class="four-year-container">
+          <div style="display:flex;justify-content:space-between;align-items:center;flex-wrap:wrap;gap:12px">
+            <div>
+              <h3 style="font-size:18px;font-weight:700;color:var(--text-primary);margin-bottom:4px">🎓 4-Year Academic Degree Calendar</h3>
+              <p style="font-size:12px;color:var(--text-muted)">Live historical and future academic schedule spanning 4 undergraduate years (2024–2027)</p>
+            </div>
+            <button type="button" class="btn btn-ghost btn-sm" onclick="switchCalendarView('month')">Back to Month View</button>
+          </div>
+          
+          <div class="four-year-grid">
+      `;
+
+      academicYears.forEach(ay => {
+        html += `
+          <div class="year-card ${ay.current ? 'current-academic-year' : ''}">
+            <div class="year-card-header">
+              <div class="year-title">
+                <span>📅</span>
+                <span>${ay.year}</span>
+              </div>
+              <span class="year-badge ${ay.current ? 'current' : ''}">${ay.label}</span>
+            </div>
+            <div class="year-months-grid">
+        `;
+
+        monthNames.forEach((mName, mIdx) => {
+          let attendedCount = 0;
+          Object.keys(attMap).forEach(dStr => {
+            const [y, m] = dStr.split('-').map(Number);
+            if (y === ay.year && m === (mIdx + 1)) {
+              attendedCount += attMap[dStr].length;
+            }
+          });
+
+          const isCurrent = ay.year === currentRealYear && mIdx === currentRealMonth;
+
+          html += `
+            <div class="mini-month-tile ${isCurrent ? 'tile-active' : ''}" onclick="drillDownMonth(${ay.year}, ${mIdx})" title="View ${mName} ${ay.year}">
+              <div class="mini-month-name">${mName}</div>
+              <div class="mini-month-stat" style="${attendedCount > 0 ? 'color:#00D4A1;font-weight:700' : ''}">${attendedCount > 0 ? `${attendedCount} present` : '—'}</div>
+            </div>
+          `;
+        });
+
+        html += `
+            </div>
+          </div>
+        `;
+      });
+
+      html += `
+          </div>
+        </div>
+      `;
+
+      container.innerHTML = html;
+    }
+
+    function drillDownMonth(year, month) {
+      currentCalendarMonth = new Date(year, month, 1);
+      scheduleSelectedYear = year;
+      scheduleSelectedMonth = month;
+      switchCalendarView('month');
+    }
+
+    function jumpMainCalendarMonth(monthIdx) {
+      currentCalendarMonth.setMonth(parseInt(monthIdx, 10));
+      renderCalendar();
+    }
+
+    function jumpMainCalendarYear(year) {
+      currentCalendarMonth.setFullYear(parseInt(year, 10));
+      renderCalendar();
     }
 
     function prevMonth() {

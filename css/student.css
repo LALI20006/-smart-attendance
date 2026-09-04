@@ -270,15 +270,33 @@
 .schedule-header {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   font-size: 16px;
   font-weight: 600;
   color: #4285F4;
-  margin-bottom: 24px;
+  margin-bottom: 18px;
 }
 
 .schedule-icon {
-  margin-right: 8px;
+  margin-right: 6px;
   font-size: 18px;
+}
+
+.btn-today-chip {
+  background: #E8F0FE;
+  color: #1A73E8;
+  border: 1px solid #D2E3FC;
+  border-radius: 12px;
+  font-size: 11px;
+  font-weight: 700;
+  padding: 3px 10px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.btn-today-chip:hover {
+  background: #4285F4;
+  color: #FFFFFF;
 }
 
 .schedule-month-nav {
@@ -286,70 +304,296 @@
   justify-content: space-between;
   align-items: center;
   font-weight: 600;
-  font-size: 15px;
+  font-size: 14px;
   color: #444;
-  padding: 0 16px;
-  margin-bottom: 16px;
+  padding: 0 4px;
+  margin-bottom: 14px;
+}
+
+.schedule-nav-selectors {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.schedule-select {
+  appearance: none;
+  -webkit-appearance: none;
+  background: #F1F3F4 url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='%235f6368'%3E%3Cpath d='M7 10l5 5 5-5z'/%3E%3C/svg%3E") no-repeat right 6px center;
+  background-size: 14px;
+  border: 1px solid #DADCE0;
+  border-radius: 8px;
+  padding: 4px 22px 4px 8px;
+  font-size: 13px;
+  font-weight: 600;
+  color: #202124;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.schedule-select:hover {
+  background-color: #E8F0FE;
+  border-color: #4285F4;
+  color: #1A73E8;
+}
+
+.schedule-select:focus {
+  outline: none;
+  border-color: #4285F4;
+  box-shadow: 0 0 0 2px rgba(66, 133, 244, 0.2);
 }
 
 .nav-arrow {
   background: none;
   border: none;
   color: #4285F4;
-  font-size: 18px;
+  font-size: 20px;
   cursor: pointer;
   padding: 0 8px;
+  border-radius: 50%;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: background 0.2s;
+}
+
+.nav-arrow:hover {
+  background: #F1F3F4;
 }
 
 .schedule-grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
-  gap: 12px 4px;
+  gap: 8px 4px;
   text-align: center;
 }
 
 .day-name {
-  font-size: 13px;
-  font-weight: 600;
-  color: #666;
-  margin-bottom: 4px;
+  font-size: 12px;
+  font-weight: 700;
+  color: #70757A;
+  margin-bottom: 2px;
 }
 
 .schedule-date {
-  font-size: 14px;
-  color: #444;
+  font-size: 13px;
+  color: #3C4043;
   display: flex;
+  flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 36px;
-  width: 36px;
+  height: 34px;
+  width: 34px;
   margin: 0 auto;
   border-radius: 50%;
   cursor: pointer;
+  position: relative;
+  transition: all 0.15s ease;
+}
+
+.schedule-date:hover:not(.other-month) {
+  background-color: #F1F3F4;
 }
 
 .schedule-date.other-month {
-  color: #D0D0D0;
+  color: #DADCE0;
 }
 
 .schedule-date.active {
   background-color: #4285F4;
-  color: white;
-  font-weight: 600;
-  box-shadow: 0 4px 12px rgba(66, 133, 244, 0.4);
+  color: white !important;
+  font-weight: 700;
+  box-shadow: 0 4px 10px rgba(66, 133, 244, 0.4);
+}
+
+.schedule-date.selected-date {
+  border: 2px solid #1A73E8;
+  font-weight: 700;
+}
+
+.schedule-date.has-att::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  width: 4px;
+  height: 4px;
+  border-radius: 50%;
+  background-color: #0F9D58;
+}
+
+.schedule-date.active.has-att::after {
+  background-color: #FFFFFF;
+}
+
+.schedule-date-summary {
+  margin-top: 14px;
+  padding: 10px 12px;
+  background: #F8F9FA;
+  border-radius: 12px;
+  font-size: 12px;
+  color: #5F6368;
+  text-align: center;
+  min-height: 38px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  line-height: 1.4;
+  border: 1px dashed #E0E0E0;
 }
 
 .schedule-indicator {
   display: flex;
   justify-content: center;
-  margin-top: 16px;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+  font-size: 11px;
+  color: #70757A;
 }
 
-.schedule-indicator .dot {
+.schedule-legend-item {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.legend-dot {
   width: 6px;
   height: 6px;
-  background-color: #4285F4;
   border-radius: 50%;
+}
+
+.legend-dot.today-dot { background-color: #4285F4; }
+.legend-dot.att-dot { background-color: #0F9D58; }
+
+/* ── Calendar View Switcher & 4-Year Styles ── */
+.calendar-view-toggle {
+  display: flex;
+  background: rgba(255, 255, 255, 0.05);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  padding: 2px;
+}
+
+.toggle-btn {
+  background: none;
+  border: none;
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--text-muted);
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.toggle-btn.active {
+  background: var(--primary);
+  color: #FFFFFF;
+  box-shadow: 0 2px 8px rgba(108, 99, 255, 0.3);
+}
+
+.four-year-container {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+}
+
+.four-year-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 20px;
+}
+
+.year-card {
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  padding: 16px;
+  transition: all 0.2s ease;
+}
+
+.year-card.current-academic-year {
+  border-color: rgba(66, 133, 244, 0.5);
+  background: rgba(66, 133, 244, 0.04);
+  box-shadow: 0 4px 20px rgba(66, 133, 244, 0.1);
+}
+
+.year-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--primary);
+}
+
+.year-card-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 14px;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--border-subtle);
+}
+
+.year-title {
+  font-size: 16px;
+  font-weight: 700;
+  color: var(--text-primary);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.year-badge {
+  font-size: 10px;
+  font-weight: 700;
+  padding: 2px 8px;
+  border-radius: 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: var(--text-secondary);
+}
+
+.year-badge.current {
+  background: #1A73E8;
+  color: #FFFFFF;
+}
+
+.year-months-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 8px;
+}
+
+.mini-month-tile {
+  padding: 8px 6px;
+  background: rgba(255, 255, 255, 0.03);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 8px;
+  text-align: center;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.mini-month-tile:hover {
+  background: rgba(108, 99, 255, 0.15);
+  border-color: var(--primary);
+}
+
+.mini-month-tile.tile-active {
+  border-color: #4285F4;
+  background: rgba(66, 133, 244, 0.18);
+}
+
+.mini-month-name {
+  font-size: 11px;
+  font-weight: 700;
+  color: var(--text-primary);
+  margin-bottom: 2px;
+}
+
+.mini-month-stat {
+  font-size: 10px;
+  color: var(--text-muted);
 }
 
 
