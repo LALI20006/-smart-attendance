@@ -16,7 +16,7 @@ app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
 const JWT_SECRET = process.env.JWT_SECRET || 'attendpro_prod_jwt_secret_2026_key_secure_99';
-const APP_URL = (process.env.APP_URL || 'https://attendence.in.com').replace(/\/$/, '');
+const APP_URL = (process.env.APP_URL || 'https://attendence-platform.vercel.app').replace(/\/$/, '');
 
 // Automatic HTTP -> HTTPS redirection in production when behind a reverse proxy (Render, Cloudflare, Railway, etc.)
 app.use((req, res, next) => {
@@ -25,7 +25,7 @@ app.use((req, res, next) => {
     req.headers['x-forwarded-proto'] &&
     req.headers['x-forwarded-proto'] !== 'https'
   ) {
-    const host = req.headers.host || 'attendence.in.com';
+    const host = req.headers.host || 'attendence-platform.vercel.app';
     return res.redirect(301, `https://${host}${req.url}`);
   }
   next();
@@ -41,6 +41,7 @@ app.use(
 
 // CORS for custom domain and API subdomains
 const allowedOrigins = [
+  'https://attendence-platform.vercel.app',
   'https://attendence.in.com',
   'https://www.attendence.in.com',
   'https://api.attendence.in.com',
