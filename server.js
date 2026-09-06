@@ -16,7 +16,7 @@ app.set('trust proxy', 1);
 const PORT = Number(process.env.PORT || 3000);
 const HOST = process.env.HOST || '0.0.0.0';
 const JWT_SECRET = process.env.JWT_SECRET || 'attendpro_prod_jwt_secret_2026_key_secure_99';
-const APP_URL = (process.env.APP_URL || 'https://attendence-platform.vercel.app').replace(/\/$/, '');
+const APP_URL = (process.env.APP_URL || 'http://localhost:3000').replace(/\/$/, '');
 
 // Automatic HTTP -> HTTPS redirection in production when behind a reverse proxy (Render, Cloudflare, Railway, etc.)
 app.use((req, res, next) => {
@@ -25,7 +25,7 @@ app.use((req, res, next) => {
     req.headers['x-forwarded-proto'] &&
     req.headers['x-forwarded-proto'] !== 'https'
   ) {
-    const host = req.headers.host || 'attendence-platform.vercel.app';
+    const host = req.headers.host || 'localhost:3000';
     return res.redirect(301, `https://${host}${req.url}`);
   }
   next();
@@ -41,12 +41,11 @@ app.use(
 
 // CORS for custom domain and API subdomains
 const allowedOrigins = [
-  'https://attendence-platform.vercel.app',
+  'http://localhost:3000',
+  'http://127.0.0.1:3000',
   'https://attendence.in.com',
   'https://www.attendence.in.com',
   'https://api.attendence.in.com',
-  'http://localhost:3000',
-  'http://127.0.0.1:3000',
   APP_URL,
 ];
 
@@ -100,6 +99,21 @@ const authLimiter = rateLimit({
 
 // Static assets
 app.use(express.static(__dirname, { maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0 }));
+app.use(express.static(path.join(__dirname, 'public'), { maxAge: process.env.NODE_ENV === 'production' ? '1d' : 0 }));
+
+// URL Path Normalization for Serverless Edge & Proxies
+app.use((req, res, next) => {
+  if (req.url && !req.url.startsWith('/api')) {
+    const knownApiPrefixes = ['/auth', '/student', '/faculty', '/admin', '/health', '/request-reset', '/reset-password'];
+    for (const prefix of knownApiPrefixes) {
+      if (req.url === prefix || req.url.startsWith(prefix + '/') || req.url.startsWith(prefix + '?')) {
+        req.url = '/api' + req.url;
+        break;
+      }
+    }
+  }
+  next();
+});
 
 // Database initialization guard
 let dbInitPromise = null;
@@ -114,15 +128,17 @@ function ensureDb() {
 }
 
 app.use(async (req, res, next) => {
-  if (req.path.startsWith('/api/')) {
+  if (req.path.startsWith('/api/') || req.path === '/api') {
     try {
       await ensureDb();
     } catch (err) {
+      console.error('[API Init Error]:', err.message);
       return res.status(500).json({ error: 'Database initialization failed: ' + err.message });
     }
   }
   next();
 });
+
 
 // ── Helpers & JWT Middleware ──────────────────────────────
 function parseUserAgent(ua = '') {
@@ -190,6 +206,16 @@ setInterval(() => {
 }, 60 * 1000);
 
 // ── Health & System ──────────────────────────────────────
+app.get(['/api', '/api/'], (req, res) => {
+  res.json({
+    status: 'ok',
+    app: 'AttendPro Smart Attendance Platform API',
+    database: db.getMode(),
+    dbName: db.getDatabaseName(),
+    timestamp: new Date().toISOString(),
+  });
+});
+
 app.get('/api/health', (req, res) => {
   res.json({
     status: 'ok',
@@ -200,6 +226,7 @@ app.get('/api/health', (req, res) => {
     timestamp: new Date().toISOString(),
   });
 });
+
 
 // ── Authentication Endpoints ──────────────────────────────
 // 1. REGISTER
@@ -222,12 +249,12 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
     const normalizedEmail = String(email).trim().toLowerCase();
     const existing = await db.query('SELECT id FROM users WHERE LOWER(email) = ?', [normalizedEmail]);
     if (existing.rows.length > 0) {
-      return res.status(409).json({ error: 'An account with this email address already exists.' });
+      return res.status(409).json({ error: 'An account with this email address already exists. Please sign in instead.' });
     }
 
     const passwordHash = db.hashPassword(password);
     const result = await db.query(
-      'INSERT INTO users (name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, FALSE)',
+      'INSERT INTO users (name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, TRUE)',
       [String(name).trim(), normalizedEmail, passwordHash, role]
     );
 
@@ -244,14 +271,38 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
       }
     }
 
+    // Step: Parse client IP and User-Agent, insert new row into user_sessions
+    const { browser, device } = parseUserAgent(req.headers['user-agent']);
+    const rawIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '127.0.0.1';
+    const ip = rawIp.replace(/^::ffff:/, '');
+
+    await db.query(
+      'UPDATE users SET is_active = TRUE, last_login_at = CURRENT_TIMESTAMP WHERE id = ?',
+      [newUserId]
+    );
+
+    const sessRes = await db.query(
+      `INSERT INTO user_sessions (user_id, login_time, last_activity, status, ip_address, device, browser)
+       VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'ACTIVE', ?, ?, ?)`,
+      [newUserId, ip, device, browser]
+    );
+    const sessionId = sessRes.insertId;
+
+    const safeUser = {
+      id: newUserId,
+      name: String(name).trim(),
+      email: normalizedEmail,
+      role,
+      sessionId,
+      lastLoginAt: new Date().toISOString(),
+    };
+
+    const token = generateToken(safeUser, sessionId);
+
     return res.status(201).json({
       message: 'User registered successfully',
-      user: {
-        id: newUserId,
-        name: String(name).trim(),
-        email: normalizedEmail,
-        role,
-      },
+      token,
+      user: safeUser,
     });
   } catch (err) {
     console.error('[Register Error]:', err);

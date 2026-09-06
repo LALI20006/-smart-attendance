@@ -39,8 +39,10 @@ function setCurrentUser(user) {
 function getApiBase() {
   if (typeof window === 'undefined') return '';
   if (window.ENV_API_URL) return window.ENV_API_URL.replace(/\/$/, '');
-  if (window.location.protocol === 'file:') return 'https://attendence-platform.vercel.app';
-  return window.location.origin || 'https://attendence-platform.vercel.app';
+  if (window.location.protocol === 'http:' || window.location.protocol === 'https:') {
+    return window.location.origin;
+  }
+  return 'http://localhost:3000';
 }
 
 async function apiRequest(endpoint, options = {}) {

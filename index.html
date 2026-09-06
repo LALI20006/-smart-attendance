@@ -516,17 +516,40 @@
         }
 
         UI.showToast(`Account created! Signing you in...`, 'success');
-        return SAP.login(email, password, selectedRole).then((user) => {
+        const proceed = (user) => {
           const pending = sessionStorage.getItem('pending_attendance_session');
           if (user.role === 'admin') window.location.href = 'admin.html';
           else if (user.role === 'faculty') window.location.href = 'faculty.html';
           else window.location.href = pending ? `student.html?session=${encodeURIComponent(pending)}` : 'student.html';
-        });
+        };
+
+        if (SAP.getToken() && SAP.getCurrentUser()) {
+          setTimeout(() => proceed(SAP.getCurrentUser()), 300);
+        } else {
+          return SAP.login(email, password, selectedRole).then(proceed);
+        }
       }).catch((error) => {
-        errorEl.textContent = error.message || 'Unable to create your account.';
+        const msg = error.message || 'Unable to create your account.';
+        if (msg.toLowerCase().includes('already exists')) {
+          errorEl.innerHTML = `${msg} <a href="javascript:void(0)" onclick="switchExistingToLogin('${email.replace(/'/g, "\\'")}')" style="color:#60a5fa;text-decoration:underline;margin-left:6px;font-weight:700">Sign in now &rarr;</a>`;
+        } else {
+          errorEl.textContent = msg;
+        }
         errorEl.classList.add('visible');
         UI.setButtonLoading(btn, false);
       });
+    }
+
+    function switchExistingToLogin(userEmail) {
+      updateAuthMode('login');
+      if (userEmail) {
+        const emailInput = document.getElementById('email');
+        if (emailInput) {
+          emailInput.value = userEmail;
+          const pwInput = document.getElementById('password');
+          if (pwInput) pwInput.focus();
+        }
+      }
     }
 
 

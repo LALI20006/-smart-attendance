@@ -63,12 +63,14 @@ async function query(sqlText, params = []) {
   }
 }
 
-async function createSchema() {
-  console.log(`[Database] Ensuring MySQL database '${MYSQL_DATABASE}' exists...`);
+async function ensureUsersTable() {
+  const [tables] = await pool.query(
+    "SELECT TABLE_NAME FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'users'"
+  );
 
-  const DDL = [
-    // 1. users table as specified
-    `CREATE TABLE IF NOT EXISTS users (
+  if (tables.length === 0) {
+    console.log('[Database] Creating users table...');
+    await query(`CREATE TABLE users (
       id INT PRIMARY KEY AUTO_INCREMENT,
       name VARCHAR(100) NOT NULL,
       email VARCHAR(150) UNIQUE NOT NULL,
@@ -82,9 +84,59 @@ async function createSchema() {
       INDEX idx_email (email),
       INDEX idx_role (role),
       INDEX idx_is_active (is_active)
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`);
+    return;
+  }
 
-    // 2. user_sessions table as specified
+  // Users table exists. Check column types and ensure compatibility
+  const [cols] = await pool.query(
+    "SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users'"
+  );
+  const colMap = new Map(cols.map((c) => [c.COLUMN_NAME.toLowerCase(), c.DATA_TYPE.toLowerCase()]));
+
+  const idType = colMap.get('id');
+  if (idType && idType !== 'int' && idType !== 'bigint') {
+    const [countRows] = await pool.query('SELECT count(*) as cnt FROM users');
+    const cnt = Number(countRows[0]?.cnt || 0);
+    if (cnt === 0) {
+      console.log('[Database] Recreating empty users table with auto-increment INT id...');
+      await pool.query('DROP TABLE users');
+      return ensureUsersTable();
+    }
+  }
+
+  // Safely ensure all required columns exist
+  const columnDefs = [
+    { name: 'password_hash', ddl: 'ADD COLUMN password_hash VARCHAR(255) NOT NULL' },
+    { name: 'role', ddl: "ADD COLUMN role ENUM('student','faculty','admin') NOT NULL DEFAULT 'student'" },
+    { name: 'is_active', ddl: 'ADD COLUMN is_active BOOLEAN DEFAULT FALSE' },
+    { name: 'created_at', ddl: 'ADD COLUMN created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP' },
+    { name: 'updated_at', ddl: 'ADD COLUMN updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP' },
+    { name: 'last_login_at', ddl: 'ADD COLUMN last_login_at TIMESTAMP NULL' },
+    { name: 'last_logout_at', ddl: 'ADD COLUMN last_logout_at TIMESTAMP NULL' },
+  ];
+
+  for (const col of columnDefs) {
+    if (!colMap.has(col.name)) {
+      try {
+        await pool.query(`ALTER TABLE users ${col.ddl}`);
+        console.log(`[Database] Added missing column users.${col.name}`);
+      } catch (e) {
+        console.warn(`[Database] Column add note for users.${col.name}:`, e.message);
+      }
+    }
+  }
+}
+
+async function createSchema() {
+  console.log(`[Database] Ensuring MySQL database '${MYSQL_DATABASE}' tables exist...`);
+
+  // Step 1: Ensure users table exists with correct columns
+  await ensureUsersTable();
+
+  // Step 2: Ensure dependent tables exist with indexes (independent of foreign key engine restrictions)
+  const DDL = [
+    // 2. user_sessions table
     `CREATE TABLE IF NOT EXISTS user_sessions (
       id INT PRIMARY KEY AUTO_INCREMENT,
       user_id INT NOT NULL,
@@ -98,8 +150,7 @@ async function createSchema() {
       INDEX idx_user_id (user_id),
       INDEX idx_status (status),
       INDEX idx_login_time (login_time),
-      INDEX idx_last_activity (last_activity),
-      CONSTRAINT fk_user_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      INDEX idx_last_activity (last_activity)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
     // 3. subjects catalog
@@ -110,7 +161,7 @@ async function createSchema() {
       faculty_id INT NULL,
       semester INT DEFAULT 1,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      CONSTRAINT fk_sub_faculty FOREIGN KEY (faculty_id) REFERENCES users(id) ON DELETE SET NULL
+      INDEX idx_faculty_id (faculty_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
     // 4. enrollments
@@ -120,8 +171,8 @@ async function createSchema() {
       subject_id VARCHAR(64) NOT NULL,
       enrolled_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT unique_student_subject UNIQUE (student_id, subject_id),
-      CONSTRAINT fk_enr_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
-      CONSTRAINT fk_enr_subject FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+      INDEX idx_student_id (student_id),
+      INDEX idx_subject_id (subject_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
     // 5. attendance_sessions
@@ -136,8 +187,9 @@ async function createSchema() {
       end_time TIMESTAMP NOT NULL,
       status VARCHAR(32) DEFAULT 'active',
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      CONSTRAINT fk_att_sess_fac FOREIGN KEY (faculty_id) REFERENCES users(id) ON DELETE CASCADE,
-      CONSTRAINT fk_att_sess_sub FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE
+      INDEX idx_faculty_id (faculty_id),
+      INDEX idx_subject_id (subject_id),
+      INDEX idx_session_code (session_code)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
     // 6. attendance records
@@ -152,8 +204,9 @@ async function createSchema() {
       gps_valid BOOLEAN DEFAULT TRUE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
       CONSTRAINT unique_session_student UNIQUE (session_id, student_id),
-      CONSTRAINT fk_att_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE,
-      CONSTRAINT fk_att_session FOREIGN KEY (session_id) REFERENCES attendance_sessions(id) ON DELETE CASCADE
+      INDEX idx_session_id (session_id),
+      INDEX idx_student_id (student_id),
+      INDEX idx_subject_id (subject_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
 
     // 7. notifications
@@ -164,12 +217,33 @@ async function createSchema() {
       message TEXT NOT NULL,
       is_read BOOLEAN DEFAULT FALSE,
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      CONSTRAINT fk_notif_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+      INDEX idx_user_id (user_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci`,
   ];
 
   for (const statement of DDL) {
     await query(statement);
+  }
+
+  // Step 3: Attempt optional foreign keys gracefully (non-blocking for distributed/serverless engines)
+  const FK_STMTS = [
+    'ALTER TABLE user_sessions ADD CONSTRAINT fk_user_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE',
+    'ALTER TABLE subjects ADD CONSTRAINT fk_sub_faculty FOREIGN KEY (faculty_id) REFERENCES users(id) ON DELETE SET NULL',
+    'ALTER TABLE enrollments ADD CONSTRAINT fk_enr_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE',
+    'ALTER TABLE enrollments ADD CONSTRAINT fk_enr_subject FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE',
+    'ALTER TABLE attendance_sessions ADD CONSTRAINT fk_att_sess_fac FOREIGN KEY (faculty_id) REFERENCES users(id) ON DELETE CASCADE',
+    'ALTER TABLE attendance_sessions ADD CONSTRAINT fk_att_sess_sub FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE',
+    'ALTER TABLE attendance ADD CONSTRAINT fk_att_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE',
+    'ALTER TABLE attendance ADD CONSTRAINT fk_att_session FOREIGN KEY (session_id) REFERENCES attendance_sessions(id) ON DELETE CASCADE',
+    'ALTER TABLE notifications ADD CONSTRAINT fk_notif_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE',
+  ];
+
+  for (const fk of FK_STMTS) {
+    try {
+      await query(fk);
+    } catch (e) {
+      // Non-blocking: Ignore if already exists or if DB does not enforce FKs
+    }
   }
 
   console.log('[Database] MySQL tables verified.');
@@ -194,11 +268,7 @@ async function seedData() {
     }
   }
 
-  // Only seed dummy users if AUTO_SEED=true
-  if (process.env.AUTO_SEED !== 'true') {
-    return;
-  }
-
+  // Seed demo users if no admin exists yet
   const check = await query('SELECT count(*) as count FROM users WHERE email = ?', ['admin@campus.edu']);
   const userCount = Number(check.rows[0]?.count || 0);
   if (userCount > 0) {
