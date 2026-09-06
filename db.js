@@ -92,9 +92,10 @@ async function ensureUsersTable() {
   const [cols] = await pool.query(
     "SELECT COLUMN_NAME, DATA_TYPE, EXTRA FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users'"
   );
+  const colMap = new Set(cols.map((c) => (c.COLUMN_NAME || '').toLowerCase()));
   const idCol = cols.find((c) => (c.COLUMN_NAME || '').toLowerCase() === 'id');
   const isAutoInc = idCol && (idCol.EXTRA || '').toLowerCase().includes('auto_increment');
-  const isInt = idCol && (idCol.DATA_TYPE.toLowerCase() === 'int' || idCol.DATA_TYPE.toLowerCase() === 'bigint');
+  const isInt = idCol && (idCol.DATA_TYPE?.toLowerCase() === 'int' || idCol.DATA_TYPE?.toLowerCase() === 'bigint');
 
   if (!isAutoInc || !isInt) {
     let canRecreate = true;
@@ -138,7 +139,7 @@ async function ensureUsersTable() {
   ];
 
   for (const col of columnDefs) {
-    if (!colMap.has(col.name)) {
+    if (!colMap.has(col.name.toLowerCase())) {
       try {
         await pool.query(`ALTER TABLE users ${col.ddl}`);
         console.log(`[Database] Added missing column users.${col.name}`);
