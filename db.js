@@ -225,6 +225,27 @@ async function createSchema() {
     await query(statement);
   }
 
+  // Step 3: Drop any legacy foreign key constraints that conflict with TiDB Serverless
+  const legacyFKs = [
+    { table: 'user_sessions', fk: 'fk_user_sessions_user' },
+    { table: 'subjects', fk: 'fk_sub_faculty' },
+    { table: 'enrollments', fk: 'fk_enr_student' },
+    { table: 'enrollments', fk: 'fk_enr_subject' },
+    { table: 'attendance_sessions', fk: 'fk_att_sess_fac' },
+    { table: 'attendance_sessions', fk: 'fk_att_sess_sub' },
+    { table: 'attendance', fk: 'fk_att_student' },
+    { table: 'attendance', fk: 'fk_att_session' },
+    { table: 'notifications', fk: 'fk_notif_user' },
+  ];
+
+  for (const item of legacyFKs) {
+    try {
+      await pool.query(`ALTER TABLE ${item.table} DROP FOREIGN KEY ${item.fk}`);
+    } catch (e) {
+      // Ignore: foreign key does not exist or already dropped
+    }
+  }
+
   console.log('[Database] MySQL tables verified.');
 }
 
@@ -399,7 +420,11 @@ async function initDatabase() {
 
   // Step 3: Run schema and seed
   await createSchema();
-  await seedData();
+  try {
+    await seedData();
+  } catch (err) {
+    console.warn('[Database] Seed data notice (continuing):', err.message);
+  }
 }
 
 // ── Activity and Session Expiration Sweeper ───────────────────────

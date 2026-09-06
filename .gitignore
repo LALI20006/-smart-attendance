@@ -5,3 +5,5 @@ npm-debug.log*
 .env
 cloudflared.exe
 
+.vercel
+.env*
