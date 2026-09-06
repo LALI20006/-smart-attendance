@@ -131,8 +131,26 @@ async function ensureUsersTable() {
 async function createSchema() {
   console.log(`[Database] Ensuring MySQL database '${MYSQL_DATABASE}' tables exist...`);
 
+  // Disable foreign key checks during schema setup
+  try {
+    await pool.query('SET foreign_key_checks = 0');
+  } catch (e) {}
+
   // Step 1: Ensure users table exists with correct columns
   await ensureUsersTable();
+
+  // Handle any legacy broken foreign key constraints on attendance_sessions
+  try {
+    await pool.query('ALTER TABLE attendance_sessions DROP FOREIGN KEY fk_att_sess_sub');
+  } catch (e) {
+    if (e.message && (e.message.includes('fk_att_sess_sub') || e.message.includes('incompatible'))) {
+      console.log('[Database] Recreating legacy attendance tables without foreign keys...');
+      try {
+        await pool.query('DROP TABLE IF EXISTS attendance');
+        await pool.query('DROP TABLE IF EXISTS attendance_sessions');
+      } catch (dropErr) {}
+    }
+  }
 
   // Step 2: Ensure dependent tables exist with indexes (independent of foreign key engine restrictions)
   const DDL = [
@@ -417,6 +435,10 @@ async function initDatabase() {
   // Test pool
   const [testRes] = await pool.query('SELECT 1 as connected');
   console.log(`[Database] Connected successfully to MySQL database '${MYSQL_DATABASE}'!`);
+
+  try {
+    await pool.query('SET foreign_key_checks = 0');
+  } catch (e) {}
 
   // Step 3: Run schema and seed
   await createSchema();
