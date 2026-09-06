@@ -103,10 +103,6 @@ async function signup(formData) {
     body: JSON.stringify(formData),
   });
 
-  if (res.token) {
-    setToken(res.token);
-    setCurrentUser(res.user);
-  }
   return res.user;
 }
 
@@ -302,6 +298,7 @@ async function getAdminLowAttendance() {
 window.SAP = {
   DB,
   getToken,
+  setToken,
   getCurrentUser,
   setCurrentUser,
   login,

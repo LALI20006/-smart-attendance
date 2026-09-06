@@ -515,19 +515,30 @@
           return;
         }
 
-        UI.showToast(`Account created! Signing you in...`, 'success');
-        const proceed = (user) => {
-          const pending = sessionStorage.getItem('pending_attendance_session');
-          if (user.role === 'admin') window.location.href = 'admin.html';
-          else if (user.role === 'faculty') window.location.href = 'faculty.html';
-          else window.location.href = pending ? `student.html?session=${encodeURIComponent(pending)}` : 'student.html';
-        };
+        UI.setButtonLoading(btn, false);
+        const signupForm = document.getElementById('signup-form');
+        if (signupForm) signupForm.reset();
 
-        if (SAP.getToken() && SAP.getCurrentUser()) {
-          setTimeout(() => proceed(SAP.getCurrentUser()), 300);
-        } else {
-          return SAP.login(email, password, selectedRole).then(proceed);
+        // Clear any existing auth state so user must explicitly sign in
+        SAP.setToken('');
+        SAP.setCurrentUser(null);
+
+        // Switch to Sign In mode/page
+        updateAuthMode('login');
+
+        // Pre-populate email in login form and focus password field
+        const loginEmail = document.getElementById('email');
+        if (loginEmail) loginEmail.value = email;
+        const loginPw = document.getElementById('password');
+        if (loginPw) {
+          loginPw.value = '';
+          loginPw.focus();
         }
+
+        const loginError = document.getElementById('form-error');
+        if (loginError) loginError.classList.remove('visible');
+
+        UI.showToast('Account created successfully! Please sign in to continue.', 'success');
       }).catch((error) => {
         const msg = error.message || 'Unable to create your account.';
         if (msg.toLowerCase().includes('already exists')) {
