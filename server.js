@@ -236,9 +236,10 @@ app.get('/api/health', (req, res) => {
 // 1. REGISTER
 app.post('/api/auth/register', authLimiter, async (req, res) => {
   try {
-    const { name, email, password, role = 'student' } = req.body || {};
+    const userName = String(req.body?.name || req.body?.fullName || '').trim();
+    const { email, password, role = 'student' } = req.body || {};
 
-    if (!name || !email || !password) {
+    if (!userName || !email || !password) {
       return res.status(400).json({ error: 'Name, email, and password are required.' });
     }
 
@@ -256,11 +257,12 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
       return res.status(409).json({ error: 'An account with this email address already exists. Please sign in instead.' });
     }
 
+    const passwordHash = bcrypt.hashSync(String(password), 10);
     let newUserId = null;
     try {
       const result = await db.query(
         'INSERT INTO users (name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, TRUE)',
-        [String(name).trim(), normalizedEmail, passwordHash, role]
+        [userName, normalizedEmail, passwordHash, role]
       );
       newUserId = result.insertId;
     } catch (insertErr) {
@@ -269,7 +271,7 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
         const nextId = Number(maxRes.rows[0]?.next_id || 1);
         await db.query(
           'INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, TRUE)',
-          [nextId, String(name).trim(), normalizedEmail, passwordHash, role]
+          [nextId, userName, normalizedEmail, passwordHash, role]
         );
         newUserId = nextId;
       } else {
@@ -282,16 +284,19 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
       newUserId = fetchNew.rows[0]?.id;
     }
 
-
     // Auto-enroll student into subjects if role is student
     if (role === 'student') {
-      const subs = await db.query('SELECT id FROM subjects LIMIT 3');
-      for (const sub of subs.rows) {
-        await db.query(
-          'INSERT IGNORE INTO enrollments (id, student_id, subject_id) VALUES (?, ?, ?)',
-          [`enr-${newUserId}-${sub.id}`, newUserId, sub.id]
-        );
-      }
+      try {
+        const subs = await db.query('SELECT id FROM subjects LIMIT 3');
+        for (const sub of subs.rows) {
+          try {
+            await db.query(
+              'INSERT IGNORE INTO enrollments (id, student_id, subject_id) VALUES (?, ?, ?)',
+              [`enr-${newUserId}-${sub.id}`, newUserId, sub.id]
+            );
+          } catch (e) {}
+        }
+      } catch (e) {}
     }
 
     // Step: Parse client IP and User-Agent, insert new row into user_sessions
@@ -313,7 +318,7 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
 
     const safeUser = {
       id: newUserId,
-      name: String(name).trim(),
+      name: userName,
       email: normalizedEmail,
       role,
       sessionId,
