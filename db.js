@@ -150,6 +150,32 @@ async function ensureUsersTable() {
   }
 }
 
+async function ensureUserSessionsTable() {
+  try {
+    const [tables] = await pool.query(
+      "SELECT table_name FROM information_schema.tables WHERE table_schema = DATABASE() AND table_name = 'user_sessions'"
+    );
+    if (tables.length === 0) {
+      return;
+    }
+
+    const [cols] = await pool.query(
+      "SELECT COLUMN_NAME, DATA_TYPE, IS_NULLABLE, EXTRA FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'user_sessions'"
+    );
+    const colNames = cols.map((c) => (c.COLUMN_NAME || '').toLowerCase());
+    const hasSessionId = colNames.includes('session_id');
+    const idCol = cols.find((c) => (c.COLUMN_NAME || '').toLowerCase() === 'id');
+    const isAutoInc = idCol && (idCol.EXTRA || '').toLowerCase().includes('auto_increment');
+
+    if (hasSessionId || !isAutoInc) {
+      console.log('[Database] Recreating user_sessions table with standard schema...');
+      await pool.query('DROP TABLE IF EXISTS user_sessions');
+    }
+  } catch (e) {
+    console.warn('[Database] ensureUserSessionsTable note:', e.message);
+  }
+}
+
 async function createSchema() {
   console.log(`[Database] Ensuring MySQL database '${MYSQL_DATABASE}' tables exist...`);
 
@@ -160,6 +186,9 @@ async function createSchema() {
 
   // Step 1: Ensure users table exists with correct columns
   await ensureUsersTable();
+
+  // Step 2: Ensure user_sessions table exists with clean schema
+  await ensureUserSessionsTable();
 
   // Handle any legacy broken foreign key constraints on attendance_sessions
   try {

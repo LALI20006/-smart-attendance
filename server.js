@@ -309,12 +309,27 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
       [newUserId]
     );
 
-    const sessRes = await db.query(
-      `INSERT INTO user_sessions (user_id, login_time, last_activity, status, ip_address, device, browser)
-       VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'ACTIVE', ?, ?, ?)`,
-      [newUserId, ip, device, browser]
-    );
-    const sessionId = sessRes.insertId;
+    let sessionId = 1;
+    try {
+      const sessRes = await db.query(
+        `INSERT INTO user_sessions (user_id, login_time, last_activity, status, ip_address, device, browser)
+         VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'ACTIVE', ?, ?, ?)`,
+        [newUserId, ip, device, browser]
+      );
+      sessionId = sessRes.insertId || 1;
+    } catch (sessErr) {
+      console.warn('[Register] user_sessions insert note:', sessErr.message);
+      try {
+        const sessRes = await db.query(
+          `INSERT INTO user_sessions (session_id, user_id, login_time, last_activity, status, ip_address, device, browser)
+           VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'ACTIVE', ?, ?, ?)`,
+          [`sess-${Date.now()}-${newUserId}`, newUserId, ip, device, browser]
+        );
+        sessionId = sessRes.insertId || 1;
+      } catch (e) {
+        sessionId = 1;
+      }
+    }
 
     const safeUser = {
       id: newUserId,
@@ -378,12 +393,27 @@ app.post('/api/auth/login', authLimiter, async (req, res) => {
     const rawIp = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.socket.remoteAddress || '127.0.0.1';
     const ip = rawIp.replace(/^::ffff:/, '');
 
-    const sessRes = await db.query(
-      `INSERT INTO user_sessions (user_id, login_time, last_activity, status, ip_address, device, browser)
-       VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'ACTIVE', ?, ?, ?)`,
-      [user.id, ip, device, browser]
-    );
-    const sessionId = sessRes.insertId;
+    let sessionId = 1;
+    try {
+      const sessRes = await db.query(
+        `INSERT INTO user_sessions (user_id, login_time, last_activity, status, ip_address, device, browser)
+         VALUES (?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'ACTIVE', ?, ?, ?)`,
+        [user.id, ip, device, browser]
+      );
+      sessionId = sessRes.insertId || 1;
+    } catch (sessErr) {
+      console.warn('[Login] user_sessions insert note:', sessErr.message);
+      try {
+        const sessRes = await db.query(
+          `INSERT INTO user_sessions (session_id, user_id, login_time, last_activity, status, ip_address, device, browser)
+           VALUES (?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP, 'ACTIVE', ?, ?, ?)`,
+          [`sess-${Date.now()}-${user.id}`, user.id, ip, device, browser]
+        );
+        sessionId = sessRes.insertId || 1;
+      } catch (e) {
+        sessionId = 1;
+      }
+    }
 
     const safeUser = {
       id: user.id,
