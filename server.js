@@ -256,13 +256,32 @@ app.post('/api/auth/register', authLimiter, async (req, res) => {
       return res.status(409).json({ error: 'An account with this email address already exists. Please sign in instead.' });
     }
 
-    const passwordHash = db.hashPassword(password);
-    const result = await db.query(
-      'INSERT INTO users (name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, TRUE)',
-      [String(name).trim(), normalizedEmail, passwordHash, role]
-    );
+    let newUserId = null;
+    try {
+      const result = await db.query(
+        'INSERT INTO users (name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, TRUE)',
+        [String(name).trim(), normalizedEmail, passwordHash, role]
+      );
+      newUserId = result.insertId;
+    } catch (insertErr) {
+      if (insertErr.message && insertErr.message.includes("doesn't have a default value")) {
+        const maxRes = await db.query('SELECT COALESCE(MAX(id), 0) + 1 as next_id FROM users');
+        const nextId = Number(maxRes.rows[0]?.next_id || 1);
+        await db.query(
+          'INSERT INTO users (id, name, email, password_hash, role, is_active) VALUES (?, ?, ?, ?, ?, TRUE)',
+          [nextId, String(name).trim(), normalizedEmail, passwordHash, role]
+        );
+        newUserId = nextId;
+      } else {
+        throw insertErr;
+      }
+    }
 
-    const newUserId = result.insertId;
+    if (!newUserId) {
+      const fetchNew = await db.query('SELECT id FROM users WHERE LOWER(email) = ?', [normalizedEmail]);
+      newUserId = fetchNew.rows[0]?.id;
+    }
+
 
     // Auto-enroll student into subjects if role is student
     if (role === 'student') {

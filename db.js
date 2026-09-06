@@ -88,20 +88,41 @@ async function ensureUsersTable() {
     return;
   }
 
-  // Users table exists. Check column types and ensure compatibility
+  // Users table exists. Check id column definition and auto_increment
   const [cols] = await pool.query(
-    "SELECT COLUMN_NAME, DATA_TYPE FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users'"
+    "SELECT COLUMN_NAME, DATA_TYPE, EXTRA FROM information_schema.columns WHERE table_schema = DATABASE() AND table_name = 'users'"
   );
-  const colMap = new Map(cols.map((c) => [c.COLUMN_NAME.toLowerCase(), c.DATA_TYPE.toLowerCase()]));
+  const idCol = cols.find((c) => (c.COLUMN_NAME || '').toLowerCase() === 'id');
+  const isAutoInc = idCol && (idCol.EXTRA || '').toLowerCase().includes('auto_increment');
+  const isInt = idCol && (idCol.DATA_TYPE.toLowerCase() === 'int' || idCol.DATA_TYPE.toLowerCase() === 'bigint');
 
-  const idType = colMap.get('id');
-  if (idType && idType !== 'int' && idType !== 'bigint') {
-    const [countRows] = await pool.query('SELECT count(*) as cnt FROM users');
-    const cnt = Number(countRows[0]?.cnt || 0);
-    if (cnt === 0) {
-      console.log('[Database] Recreating empty users table with auto-increment INT id...');
-      await pool.query('DROP TABLE users');
-      return ensureUsersTable();
+  if (!isAutoInc || !isInt) {
+    let canRecreate = true;
+    try {
+      const [userRows] = await pool.query(
+        "SELECT count(*) as cnt FROM users WHERE email NOT IN ('admin@campus.edu', 'faculty@campus.edu', 'student@campus.edu')"
+      );
+      if (Number(userRows[0]?.cnt || 0) > 0) {
+        canRecreate = false;
+      }
+    } catch (e) {
+      canRecreate = true;
+    }
+
+    if (canRecreate) {
+      console.log('[Database] Recreating users table with proper AUTO_INCREMENT INT id...');
+      try {
+        await pool.query('DROP TABLE users');
+        return ensureUsersTable();
+      } catch (e) {
+        console.warn('[Database] Drop users note:', e.message);
+      }
+    } else {
+      try {
+        await pool.query('ALTER TABLE users MODIFY COLUMN id INT NOT NULL AUTO_INCREMENT');
+      } catch (e) {
+        console.warn('[Database] Alter users auto_increment note:', e.message);
+      }
     }
   }
 
