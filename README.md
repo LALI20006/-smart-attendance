@@ -17,7 +17,6 @@
 ### 👨‍🎓 Student Portal
 * **One-Tap QR Attendance**: Scan faculty QR codes directly using your phone's native camera or the built-in scanner with automated GPS campus proximity validation.
 * **Subject Analytics**: Visual attendance percentage rings with color-coded risk indicators.
-* **4-Year Academic Degree Calendar**: Interactive live calendar spanning 2023–2029 with a complete 4-year degree overview (1st Year, 2nd Year, 3rd Year, Final Year) and daily attendance indicators.
 * **Activity Stream**: Chronological history of attended lectures, subjects, topics, and timestamps.
 
 ### 👩‍🏫 Faculty Dashboard
