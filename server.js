@@ -103,6 +103,10 @@ app.use(express.static(path.join(__dirname, 'public'), { maxAge: process.env.NOD
 
 // URL Path Normalization for Serverless Edge & Proxies
 app.use((req, res, next) => {
+  const forwardedPath = req.headers['x-matched-path'] || req.headers['x-forwarded-url'] || req.headers['x-now-route-matches'];
+  if (forwardedPath && forwardedPath.startsWith('/api')) {
+    req.url = forwardedPath;
+  }
   if (req.url && !req.url.startsWith('/api')) {
     const knownApiPrefixes = ['/auth', '/student', '/faculty', '/admin', '/health', '/request-reset', '/reset-password'];
     for (const prefix of knownApiPrefixes) {

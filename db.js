@@ -225,27 +225,6 @@ async function createSchema() {
     await query(statement);
   }
 
-  // Step 3: Attempt optional foreign keys gracefully (non-blocking for distributed/serverless engines)
-  const FK_STMTS = [
-    'ALTER TABLE user_sessions ADD CONSTRAINT fk_user_sessions_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE',
-    'ALTER TABLE subjects ADD CONSTRAINT fk_sub_faculty FOREIGN KEY (faculty_id) REFERENCES users(id) ON DELETE SET NULL',
-    'ALTER TABLE enrollments ADD CONSTRAINT fk_enr_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE',
-    'ALTER TABLE enrollments ADD CONSTRAINT fk_enr_subject FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE',
-    'ALTER TABLE attendance_sessions ADD CONSTRAINT fk_att_sess_fac FOREIGN KEY (faculty_id) REFERENCES users(id) ON DELETE CASCADE',
-    'ALTER TABLE attendance_sessions ADD CONSTRAINT fk_att_sess_sub FOREIGN KEY (subject_id) REFERENCES subjects(id) ON DELETE CASCADE',
-    'ALTER TABLE attendance ADD CONSTRAINT fk_att_student FOREIGN KEY (student_id) REFERENCES users(id) ON DELETE CASCADE',
-    'ALTER TABLE attendance ADD CONSTRAINT fk_att_session FOREIGN KEY (session_id) REFERENCES attendance_sessions(id) ON DELETE CASCADE',
-    'ALTER TABLE notifications ADD CONSTRAINT fk_notif_user FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE',
-  ];
-
-  for (const fk of FK_STMTS) {
-    try {
-      await query(fk);
-    } catch (e) {
-      // Non-blocking: Ignore if already exists or if DB does not enforce FKs
-    }
-  }
-
   console.log('[Database] MySQL tables verified.');
 }
 
